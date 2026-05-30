@@ -72,11 +72,11 @@
   .speed-card {
     background: var(--panel);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 20px;
-    padding: 32px 24px 24px;
+    border-radius: 16px;
+    padding: 16px 18px 14px;
     position: relative;
     overflow: hidden;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
   .speed-card::before {
     content:''; position:absolute; top:-60%; right:-30%;
@@ -90,26 +90,26 @@
     color: var(--muted); margin-bottom: 4px;
   }
   .speed-value {
-    font-size: 92px; font-weight: 900; line-height: .9;
-    letter-spacing: -4px;
+    font-size: 46px; font-weight: 900; line-height: .9;
+    letter-spacing: -2px;
     font-variant-numeric: tabular-nums;
   }
-  .speed-unit { font-size: 18px; color: var(--accent); font-weight: 600; margin-left: 4px; letter-spacing: 0; }
+  .speed-unit { font-size: 14px; color: var(--accent); font-weight: 600; margin-left: 4px; letter-spacing: 0; }
 
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
   .stat {
     background: var(--panel);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 18px 20px;
+    border-radius: 12px;
+    padding: 10px 12px;
   }
   .stat .label {
     font-family:'Space Mono', monospace;
-    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 8px;
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 4px;
   }
-  .stat .value { font-size: 34px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
-  .stat .sub { font-size: 13px; color: var(--accent-dim); font-weight: 600; }
+  .stat .value { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .stat .sub { font-size: 11px; color: var(--accent-dim); font-weight: 600; }
 
   /* controls */
   .controls {
@@ -152,11 +152,11 @@
   .voice-toggle.off { color: var(--muted); }
   #regionBtn { margin-top: 8px; }
   .region-now {
-    margin-top: 12px; text-align: center; line-height: 1.5;
-    font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
+    margin: 4px 0 12px; text-align: center; line-height: 1.5;
+    font-family:'Space Mono', monospace; font-size: 15px; color: var(--muted);
     word-break: keep-all;
   }
-  .region-now span { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .region-now span { color: var(--accent); font-weight: 700; font-size: 18px; }
 
   /* 거리 알림 토스트 */
   .toast {
@@ -295,7 +295,7 @@
   <div class="grid2">
     <div class="stat">
       <div class="label">이동 거리</div>
-      <div class="value"><span id="distance">0.00</span><span style="font-size:16px;color:var(--accent-dim)"> km</span></div>
+      <div class="value"><span id="distance">0.00</span><span style="font-size:11px;color:var(--accent-dim)"> km</span></div>
     </div>
     <div class="stat">
       <div class="label">경과 시간</div>
@@ -303,21 +303,15 @@
     </div>
     <div class="stat">
       <div class="label">평균 속도</div>
-      <div class="value"><span id="avg">0.0</span><span style="font-size:16px;color:var(--accent-dim)"> km/h</span></div>
-    </div>
-    <div class="stat">
-      <div class="label">최고 속도</div>
-      <div class="value"><span id="max">0.0</span><span style="font-size:16px;color:var(--accent-dim)"> km/h</span></div>
+      <div class="value"><span id="avg">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
     </div>
     <div class="stat">
       <div class="label">현재 고도</div>
-      <div class="value"><span id="alt">—</span><span style="font-size:16px;color:var(--accent-dim)"> m</span></div>
-    </div>
-    <div class="stat">
-      <div class="label">누적 상승</div>
-      <div class="value"><span id="ascent">0</span><span style="font-size:16px;color:var(--accent-dim)"> m</span></div>
+      <div class="value"><span id="alt">—</span><span style="font-size:11px;color:var(--accent-dim)"> m</span></div>
     </div>
   </div>
+
+  <div class="region-now">현재 위치: <span id="region">—</span></div>
 
   <div class="map-empty" id="mapEmpty">START를 누르면 이곳에<br>주행 궤적이 실시간으로 그려집니다</div>
   <div class="map-wrap" id="mapWrap" style="display:none">
@@ -332,7 +326,6 @@
 
   <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
   <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
-  <div class="region-now">현재 위치: <span id="region">—</span></div>
 
   <div class="records">
     <div class="records-head">
@@ -638,7 +631,7 @@
       moved = true;
     }
 
-    if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
+    if (kmh > maxSpeed) { maxSpeed = kmh; }
     $('speed').textContent = kmh.toFixed(1);
     $('distance').textContent = (distance/1000).toFixed(2);
 
@@ -663,7 +656,6 @@
           if (diff > 0) totalAscent += diff;
           else totalDescent += -diff;
           lastAlt = altitude;
-          $('ascent').textContent = Math.round(totalAscent);
         }
       }
       // 고도 프로필 기록 (이동한 지점마다)
@@ -710,6 +702,11 @@
     updateOnlineStatus();
     requestWakeLock();
 
+    // 최초 시작일 때만 시작 멘트 (RESUME 시에는 생략)
+    if (elapsedBefore === 0 && distance === 0) {
+      speak('라이딩을 시작합니다. 감사와 감동을 찾는 시간이 되길 바랍니다', 1);
+    }
+
     watchId = navigator.geolocation.watchPosition(onPos, onErr, {
       enableHighAccuracy: true,
       maximumAge: 0,
@@ -752,9 +749,7 @@
     $('distance').textContent = '0.00';
     $('time').textContent = '00:00';
     $('avg').textContent = '0.0';
-    $('max').textContent = '0.0';
     $('alt').textContent = '—';
-    $('ascent').textContent = '0';
     $('accuracy').textContent = 'GPS 정확도: —';
     $('mainBtn').textContent = 'START';
     $('mainBtn').className = 'btn-start';
@@ -783,6 +778,7 @@
   // 완료 버튼: 측정 멈추고 저장 여부 모달
   function finishRide() {
     if (running) stop();
+    speak('라이딩을 마칩니다', 1);
     const s = currentSummary();
     if (s.distance === 0 && s.durationMs < 1000) {
       // 기록할 게 없으면 그냥 초기화
