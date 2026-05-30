@@ -96,6 +96,10 @@
   }
   .speed-unit { font-size: 14px; color: var(--accent); font-weight: 600; margin-left: 4px; letter-spacing: 0; }
 
+  .speed-top { display: flex; align-items: stretch; gap: 14px; }
+  .speed-col { flex: 1; min-width: 0; }
+  .speed-divider { width: 1px; background: rgba(255,255,255,0.08); align-self: stretch; }
+
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
   .stat {
     background: var(--panel);
@@ -284,26 +288,38 @@
   </header>
 
   <div class="speed-card">
-    <div class="speed-label">현재 속도</div>
-    <div>
-      <span class="speed-value" id="speed">0.0</span>
-      <span class="speed-unit">km/h</span>
+    <div class="speed-top">
+      <div class="speed-col">
+        <div class="speed-label">현재 속도</div>
+        <div>
+          <span class="speed-value" id="speed">0.0</span>
+          <span class="speed-unit">km/h</span>
+        </div>
+      </div>
+      <div class="speed-divider"></div>
+      <div class="speed-col">
+        <div class="speed-label">이동 거리</div>
+        <div>
+          <span class="speed-value" id="distance">0.00</span>
+          <span class="speed-unit">km</span>
+        </div>
+      </div>
     </div>
     <div class="accuracy" id="accuracy">GPS 정확도: —</div>
   </div>
 
   <div class="grid2">
     <div class="stat">
-      <div class="label">이동 거리</div>
-      <div class="value"><span id="distance">0.00</span><span style="font-size:11px;color:var(--accent-dim)"> km</span></div>
+      <div class="label">평균 속도</div>
+      <div class="value"><span id="avg">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">최고 속도</div>
+      <div class="value"><span id="max">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
     </div>
     <div class="stat">
       <div class="label">경과 시간</div>
       <div class="value" id="time" style="font-family:'Space Mono',monospace">00:00</div>
-    </div>
-    <div class="stat">
-      <div class="label">평균 속도</div>
-      <div class="value"><span id="avg">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
     </div>
     <div class="stat">
       <div class="label">현재 고도</div>
@@ -631,7 +647,7 @@
       moved = true;
     }
 
-    if (kmh > maxSpeed) { maxSpeed = kmh; }
+    if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
     $('speed').textContent = kmh.toFixed(1);
     $('distance').textContent = (distance/1000).toFixed(2);
 
@@ -749,6 +765,7 @@
     $('distance').textContent = '0.00';
     $('time').textContent = '00:00';
     $('avg').textContent = '0.0';
+    $('max').textContent = '0.0';
     $('alt').textContent = '—';
     $('accuracy').textContent = 'GPS 정확도: —';
     $('mainBtn').textContent = 'START';
