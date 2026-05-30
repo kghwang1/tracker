@@ -115,6 +115,28 @@
   .stat .value { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
   .stat .sub { font-size: 11px; color: var(--accent-dim); font-weight: 600; }
 
+  /* 한 줄 형식 박스: 명칭(작게 2줄) + 숫자(크게) */
+  .stat-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px; min-height: 64px;
+  }
+  .stat-row .rlabel {
+    font-family:'Space Mono', monospace;
+    font-size: 12px; line-height: 1.15; font-weight: 700;
+    color: var(--muted); flex: 0 0 auto;
+  }
+  .stat-row .rvalue {
+    flex: 1; min-width: 0; text-align: right;
+    font-size: 30px; font-weight: 900; letter-spacing: -1px;
+    font-variant-numeric: tabular-nums; line-height: 1;
+    white-space: nowrap;
+  }
+  .stat-row .rvalue i {
+    font-style: normal; font-size: 13px; font-weight: 600;
+    color: var(--accent-dim); margin-left: 3px;
+  }
+  .stat-row .rvalue #time { font-size: 26px; }
+
   /* controls */
   .controls {
     position: fixed; bottom: 0; left: 0; right: 0;
@@ -309,21 +331,21 @@
   </div>
 
   <div class="grid2">
-    <div class="stat">
-      <div class="label">평균 속도</div>
-      <div class="value"><span id="avg">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
+    <div class="stat stat-row">
+      <div class="rlabel">평균<br>속도</div>
+      <div class="rvalue"><span id="avg">0.0</span><i>km/h</i></div>
     </div>
-    <div class="stat">
-      <div class="label">최고 속도</div>
-      <div class="value"><span id="max">0.0</span><span style="font-size:11px;color:var(--accent-dim)"> km/h</span></div>
+    <div class="stat stat-row">
+      <div class="rlabel">최고<br>속도</div>
+      <div class="rvalue"><span id="max">0.0</span><i>km/h</i></div>
     </div>
-    <div class="stat">
-      <div class="label">경과 시간</div>
-      <div class="value" id="time" style="font-family:'Space Mono',monospace">00:00</div>
+    <div class="stat stat-row">
+      <div class="rlabel">경과<br>시간</div>
+      <div class="rvalue"><span id="time" style="font-family:'Space Mono',monospace">00:00</span></div>
     </div>
-    <div class="stat">
-      <div class="label">현재 고도</div>
-      <div class="value"><span id="alt">—</span><span style="font-size:11px;color:var(--accent-dim)"> m</span></div>
+    <div class="stat stat-row">
+      <div class="rlabel">현재<br>고도</div>
+      <div class="rvalue"><span id="alt">—</span><i>m</i></div>
     </div>
   </div>
 
