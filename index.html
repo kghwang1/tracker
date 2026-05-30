@@ -35,13 +35,13 @@
     user-select: none;
   }
 
-  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 120px; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 16px 20px 95px; }
 
   header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 16px;
   }
   .logo {
     font-weight: 900;
@@ -80,7 +80,7 @@
     background: var(--panel);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 16px;
-    padding: 16px 18px 14px;
+    padding: 13px 18px 11px;
     position: relative;
     overflow: hidden;
     margin-bottom: 12px;
@@ -125,7 +125,7 @@
   /* 한 줄 형식 박스: 명칭(작게 2줄) + 숫자(크게) */
   .stat-row {
     display: flex; align-items: center; gap: 8px;
-    padding: 12px 14px; min-height: 64px;
+    padding: 8px 14px; min-height: 51px;
   }
   .stat-row .rlabel {
     font-family:'Space Mono', monospace;
@@ -148,7 +148,7 @@
   .controls {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: linear-gradient(transparent, var(--bg) 30%);
-    padding: 30px 20px 28px;
+    padding: 18px 20px 18px;
     display: flex; gap: 12px; justify-content: center;
     max-width: 480px; margin: 0 auto;
   }
@@ -156,14 +156,15 @@
     font-family:'Archivo', sans-serif;
     font-weight: 800; font-size: 16px;
     border: none; border-radius: 16px;
-    padding: 18px 0; cursor: pointer;
+    padding: 14px 0; cursor: pointer;
     letter-spacing: .5px;
     transition: transform .12s, opacity .2s;
     flex: 1;
   }
   button:active { transform: scale(0.96); }
-  .btn-start { background: var(--accent); color: #0a0e12; }
-  .btn-stop { background: var(--danger); color: #fff; }
+  /* 버튼 색을 더 어둡게 (눈부심 완화) */
+  .btn-start { background: #6f8a1f; color: #0a0e12; }
+  .btn-stop { background: #a83a35; color: #f0e8e8; }
   .btn-reset { background: var(--panel); color: var(--text); border: 1px solid rgba(255,255,255,0.1); flex: 0 0 90px; }
   button:disabled { opacity: .35; cursor: not-allowed; }
 
@@ -206,7 +207,9 @@
   /* map */
   .map-wrap {
     position: relative; margin-bottom: 16px; border-radius: 16px;
-    overflow: hidden; height: 280px;
+    overflow: hidden;
+    /* 작은 화면에선 자동으로 작아지고, 큰 화면에선 280px까지 */
+    height: 32vh; max-height: 280px; min-height: 180px;
   }
   /* 기본(북쪽 고정): 지도가 창을 정상으로 꽉 채움 → 손으로 자유롭게 조작 가능 */
   #map {
@@ -232,7 +235,8 @@
   .leaflet-control-attribution a { color: var(--accent-dim) !important; }
   .leaflet-bar a { background: var(--panel) !important; color: var(--text) !important; border-color: rgba(255,255,255,0.1) !important; }
   .map-empty {
-    height: 280px; border-radius: 16px; margin-bottom: 16px;
+    height: 32vh; max-height: 280px; min-height: 180px;
+    border-radius: 16px; margin-bottom: 16px;
     border: 1px dashed rgba(255,255,255,0.1); background: var(--panel);
     display: flex; align-items: center; justify-content: center;
     font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
@@ -324,7 +328,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 16:55</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 17:05</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
