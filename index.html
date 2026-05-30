@@ -51,7 +51,7 @@
   .logo span { color: var(--accent); }
   .logo .ver {
     font-style: normal; font-weight: 600;
-    font-size: 10px; letter-spacing: 0;
+    font-size: 15px; letter-spacing: 0;
     color: var(--muted); margin-left: 7px;
     font-family: 'Space Mono', monospace;
     vertical-align: middle;
@@ -208,26 +208,22 @@
     position: relative; margin-bottom: 16px; border-radius: 16px;
     overflow: hidden; height: 280px;
   }
-  /* 보이는 창(map-wrap)보다 지도를 크게 만들어, 회전해도 모서리 빈틈이 안 보이게 함.
-     중앙 정렬(음수 margin)이라 화살표(중심)와 줌버튼 위치가 정상 유지됨. */
+  /* 기본(북쪽 고정): 지도가 창을 정상으로 꽉 채움 → 손으로 자유롭게 조작 가능 */
   #map {
     position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    background: var(--panel);
+    z-index: 0;
+  }
+  /* 진행 방향 모드일 때만: 창보다 크게+중앙배치 후 회전 (모서리 빈틈 방지) */
+  #map.heading-rotate {
+    inset: auto;
     top: 50%; left: 50%;
     width: 142%; height: 142%;
     transform: translate(-50%, -50%) rotate(0deg);
     transform-origin: center center;
-    border: none;
-    background: var(--panel);
-    z-index: 0;
     transition: transform 0.5s ease-out;
-  }
-  /* 진행 방향 화살표 마커 (지도가 회전하므로 항상 위=진행방향) */
-  .heading-marker .arrow {
-    width: 0; height: 0;
-    border-left: 9px solid transparent;
-    border-right: 9px solid transparent;
-    border-bottom: 22px solid #d4ff3f;
-    filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
   }
   /* 줌 버튼이 회전된 지도 안에서도 화면 기준 좌상단에 보이도록 */
   .leaflet-control-zoom { margin-top: 10px !important; margin-left: 10px !important; }
@@ -328,7 +324,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 15:16</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 16:35</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -390,7 +386,7 @@
 
   <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
   <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
-  <button id="headingBtn" class="voice-toggle" onclick="toggleHeading()">🧭 지도: 진행 방향 위</button>
+  <button id="headingBtn" class="voice-toggle off" onclick="toggleHeading()">🧭 지도: 북쪽 위</button>
 
   <div class="records">
     <div class="records-head">
@@ -463,7 +459,7 @@
   let trackPoints = [];    // [lat, lon] array
   let followMode = true;   // auto-recenter on rider
   let curHeading = 0;      // 현재 진행 방향(도). 지도 회전에 사용
-  let headingMode = true;  // true=진행방향 위, false=북쪽 위
+  let headingMode = false; // true=진행방향 위, false=북쪽 위(기본)
   let wakeLock = null;     // 화면 꺼짐 방지 핸들
   let allRecords = [];     // 로드된 전체 기록 (그래프 토글용)
 
@@ -481,14 +477,10 @@
       // 사용자가 지도를 직접 움직이면 자동 추적 해제
       map.on('dragstart', () => { followMode = false; });
       track = L.polyline([], { color: '#d4ff3f', weight: 5, opacity: 0.9, lineJoin: 'round' }).addTo(map);
-      // 진행 방향 화살표 마커 (지도가 회전하므로 항상 위를 가리킴)
-      const arrowIcon = L.divIcon({
-        className: 'heading-marker',
-        html: '<div class="arrow"></div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-      marker = L.marker([lat, lon], { icon: arrowIcon }).addTo(map);
+      // 현재 위치 원형 마커
+      marker = L.circleMarker([lat, lon], {
+        radius: 8, color: '#0a0e12', weight: 3, fillColor: '#d4ff3f', fillOpacity: 1
+      }).addTo(map);
     }
     setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     setTimeout(() => { if (map) map.invalidateSize(); }, 600);
@@ -667,11 +659,14 @@
     const el = $('map');
     if (!el) return;
     if (headingMode) {
-      // 지도를 heading만큼 반대로 돌리면 진행 방향이 화면 위로 온다.
-      // (지도를 창보다 크게 만들어뒀으므로 모서리 빈틈은 안 보임)
+      el.classList.add('heading-rotate');
       el.style.transform = `translate(-50%, -50%) rotate(${-curHeading}deg)`;
+      if (map) setTimeout(() => map.invalidateSize(), 50);
     } else {
-      el.style.transform = `translate(-50%, -50%) rotate(0deg)`;
+      // 북쪽 고정: 정상 지도로 복귀 (손으로 자유롭게 조작 가능)
+      el.classList.remove('heading-rotate');
+      el.style.transform = '';
+      if (map) setTimeout(() => map.invalidateSize(), 50);
     }
   }
 
