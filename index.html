@@ -176,6 +176,33 @@
   .accuracy { font-family:'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 12px; }
 
   /* 음성 알림 토글 */
+  /* 탭 (사용법/설정/주행기록) */
+  .tabs {
+    display: flex; gap: 6px; margin-top: 16px;
+  }
+  .tab-btn {
+    flex: 1; padding: 11px 0;
+    background: var(--panel); color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+    font-family:'Space Mono', monospace; font-size: 12px; font-weight: 700;
+    letter-spacing: 0;
+  }
+  .tab-btn.active { background: var(--accent); color: #0a0e12; border-color: var(--accent); }
+  .tab-panel {
+    margin-top: 12px; padding: 16px;
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+  }
+  .tab-title { font-size: 17px; font-weight: 900; margin-bottom: 8px; }
+  .g-lead { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+  .g-sec {
+    font-family:'Space Mono', monospace; font-size: 12px; font-weight: 700;
+    color: var(--accent); margin-top: 14px; margin-bottom: 4px;
+  }
+  .tab-panel p { font-size: 13px; color: var(--text); line-height: 1.65; }
+  .tab-panel p b { color: var(--accent-dim); }
+  .g-hint { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
   .voice-toggle {
     width: 100%; margin-top: 14px; padding: 13px 0;
     background: var(--panel); color: var(--text);
@@ -184,6 +211,7 @@
     letter-spacing: .5px;
   }
   .voice-toggle.off { color: var(--muted); }
+  #voiceBtn { margin-top: 0; }
   #regionBtn { margin-top: 8px; }
   .region-now {
     margin: 4px 0 12px; text-align: center; line-height: 1.5;
@@ -328,7 +356,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:10</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:40</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -377,7 +405,12 @@
 
   <div class="region-now">현재 위치: <span id="region">—</span></div>
 
-  <div class="map-empty" id="mapEmpty">START를 누르면 이곳에<br>주행 궤적이 실시간으로 그려집니다</div>
+  <div class="map-empty" id="mapEmpty">
+    <div>
+      <div style="font-size:13px;color:var(--text);margin-bottom:8px;">📍 START를 누르면 이곳에 지도와 주행 궤적이 표시됩니다</div>
+      <div style="font-size:11px;line-height:1.6;">야외 트인 곳에서 GPS 정확도가 좋아지면(±40m 이하)<br>지도가 나타나고 측정이 시작됩니다.<br>실내·차 안에서는 신호가 약해 지도가 늦게 뜰 수 있습니다.</div>
+    </div>
+  </div>
   <div class="map-wrap" id="mapWrap" style="display:none">
     <div id="map"></div>
     <div class="offline-banner" id="offlineBanner">
@@ -388,11 +421,49 @@
 
   <div class="note" id="note">START를 누르면 위치 권한을 요청합니다.<br>야외에서 사용하면 정확도가 높아집니다.</div>
 
-  <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
-  <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
-  <button id="headingBtn" class="voice-toggle off" onclick="toggleHeading()">🧭 지도: 북쪽 위</button>
+  <!-- 탭 버튼 -->
+  <div class="tabs">
+    <button class="tab-btn" id="tabGuideBtn" onclick="openTab('guide')">📖 사용법</button>
+    <button class="tab-btn" id="tabSettingsBtn" onclick="openTab('settings')">⚙️ 설정</button>
+    <button class="tab-btn" id="tabRecordsBtn" onclick="openTab('records')">📋 주행 기록</button>
+  </div>
 
-  <div class="records">
+  <!-- 사용법 탭 -->
+  <div class="tab-panel" id="tabGuide" style="display:none">
+    <h3 class="tab-title">KG_RIDE 사용법</h3>
+    <p class="g-lead">자전거 주행을 기록하는 앱입니다. 속도·거리·경로·고도를 GPS로 측정하고 음성으로 안내합니다.</p>
+
+    <div class="g-sec">접속</div>
+    <p>설치 없이 웹 주소로 엽니다. 처음 START를 누르면 <b>위치 권한 허용</b>을 묻는데, 반드시 허용해야 측정됩니다. 자주 쓰려면 브라우저의 "홈 화면에 추가"를 해두면 편합니다.</p>
+
+    <div class="g-sec">주요 기능</div>
+    <p>현재 속도·이동 거리(위쪽 큰 박스), 평균·최고 속도·경과 시간·현재 고도(4개 박스), 현재 위치 주소를 보여줍니다. 라이딩 경로는 지도에 실시간으로 그려지고, 현재 위치는 연두색 점으로 표시됩니다.</p>
+
+    <div class="g-sec">음성·화면 알림 (2회 안내)</div>
+    <p>시작 시 "라이딩을 시작합니다", 2km마다 "○킬로미터 지났습니다", 지역이 바뀌면 "○○에 진입합니다", 완료 시 "라이딩을 마칩니다"를 알립니다. 설정 탭에서 켜고 끌 수 있습니다.</p>
+
+    <div class="g-sec">버튼</div>
+    <p>START 측정 시작 / STOP 일시정지(RESUME으로 이어감) / 완료 끝내고 저장. 저장하면 주행 기록 탭에 날짜별로 쌓입니다.</p>
+
+    <div class="g-sec">주의사항</div>
+    <p>• <b>야외 트인 곳</b>에서 쓰세요. 실내·차 안은 GPS가 약합니다("GPS 약함" 표시).<br>
+    • <b>자전거 전용</b>입니다. 40km/h 초과는 오류로 제외돼 자동차로는 측정이 안 됩니다.<br>
+    • 라이딩 중 <b>화면을 켜둔 채로</b> 두세요(자동 꺼짐 방지 있음).<br>
+    • 속도·거리는 인터넷 없이 되지만, <b>지도와 주소는 인터넷이 필요</b>합니다.<br>
+    • 기록은 <b>이 폰의 브라우저에만</b> 저장됩니다. 다른 폰·브라우저와 따로이고, 브라우저 데이터를 지우면 사라집니다.<br>
+    • 고도는 GPS 기반이라 대략적인 참고용입니다.</p>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div class="tab-panel" id="tabSettings" style="display:none">
+    <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
+    <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
+    <button id="headingBtn" class="voice-toggle off" onclick="toggleHeading()">🧭 지도: 북쪽 위</button>
+    <p class="g-hint">각 버튼을 눌러 켜고 끌 수 있습니다. 지도 버튼은 북쪽 고정 ↔ 진행 방향 위를 전환합니다.</p>
+  </div>
+
+  <!-- 주행 기록 탭 -->
+  <div class="tab-panel" id="tabRecords" style="display:none">
     <div class="records-head">
       <h2>주행 기록</h2>
       <span class="records-count" id="recCount"></span>
@@ -1136,6 +1207,25 @@
     const all = loadAllFromStore().filter(r => r.id !== id);
     saveAllToStore(all);
     await loadRecords();
+  }
+
+  // ===== 탭 전환 =====
+  let activeTab = null;
+  function openTab(name) {
+    const panels = { guide: 'tabGuide', settings: 'tabSettings', records: 'tabRecords' };
+    const btns = { guide: 'tabGuideBtn', settings: 'tabSettingsBtn', records: 'tabRecordsBtn' };
+    // 같은 탭을 다시 누르면 닫기(토글)
+    const willClose = (activeTab === name);
+    // 모두 숨기고 버튼 비활성
+    Object.values(panels).forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+    Object.values(btns).forEach(id => { const el = $(id); if (el) el.classList.remove('active'); });
+    if (willClose) { activeTab = null; return; }
+    // 선택한 탭 열기
+    const p = $(panels[name]); if (p) p.style.display = 'block';
+    const b = $(btns[name]); if (b) b.classList.add('active');
+    activeTab = name;
+    // 주행 기록 탭이면 최신 기록 다시 로드
+    if (name === 'records') loadRecords();
   }
 
   // 앱 시작 시 저장된 기록 로드
