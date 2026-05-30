@@ -324,7 +324,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 16:35</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 16:55</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -717,23 +717,44 @@
     const { latitude, longitude, speed, accuracy, altitude, altitudeAccuracy } = pos.coords;
     $('accuracy').textContent = `GPS 정확도: ±${accuracy ? accuracy.toFixed(0) : '—'} m`;
 
+    // GPS 정확도가 너무 나쁘면(신호 불량) 이 좌표는 신뢰하지 않고 건너뜀.
+    // 위치가 크게 튀어 정지 중에도 속도/거리가 부풀려지는 것을 방지.
+    const ACC_LIMIT = 25; // m
+    if (accuracy != null && accuracy > ACC_LIMIT) {
+      $('speed').textContent = '0.0';
+      $('statusText').textContent = running ? 'GPS 약함' : $('statusText').textContent;
+      return; // 이 좌표는 무시 (lastPos도 갱신하지 않음)
+    }
+
     // speed: prefer device-reported (m/s), else compute
     let kmh = 0;
     if (speed != null && speed >= 0) {
       kmh = speed * 3.6;
+      // 자전거로 불가능한 속도는 GPS 오류로 보고 0 처리
+      if (kmh > 40) kmh = 0;
     }
 
     let moved = false;
     if (lastPos) {
       const d = haversine(lastPos.lat, lastPos.lon, latitude, longitude);
       const dt = (pos.timestamp - lastPos.t) / 1000; // s
-      // 저속 라이딩용 민감 필터: 작은 이동도 잡되, 명백한 GPS 튐만 배제
-      // 정지 중 노이즈는 보통 정확도 값보다 작게 흩어지므로 그것만 거름
-      const noiseFloor = Math.max(1, (accuracy || 0) * 0.25);
+      // 이동 인정 임계값: 정확도에 비례(정확도 좋을수록 작은 이동도 인정).
+      // 정확도가 나쁠수록 더 크게 잡아 헛이동 차단.
+      const noiseFloor = Math.max(3, (accuracy || 0) * 0.7);
+
+      // 좌표로 계산한 순간 속도
+      const calcKmh = dt > 0 ? (d / dt) * 3.6 : 0;
+      // 자전거로 불가능한 속도(40km/h 초과)는 GPS 튐으로 간주하고 이 좌표 무시
+      if (calcKmh > 40) {
+        lastPos = { lat: latitude, lon: longitude, t: pos.timestamp };
+        $('speed').textContent = '0.0';
+        return;
+      }
+
       if (d > noiseFloor && dt > 0) {
         distance += d;
         moved = true;
-        if (speed == null || speed < 0) kmh = (d / dt) * 3.6;
+        if (speed == null || speed < 0) kmh = calcKmh;
 
         // 진행 방향(heading) 갱신: 일정 속도 이상일 때만 (저속 떨림 방지)
         if (headingMode && kmh >= 3) {
@@ -746,10 +767,18 @@
           // 부드럽게 회전 (급격한 떨림 완화)
           curHeading = smoothHeading(curHeading, h, 0.4);
         }
+      } else {
+        // 이동으로 인정 안 되면 정지로 간주 (헛속도 방지)
+        kmh = 0;
       }
     } else {
       // 첫 좌표: 지도 초기화 + 시작점 표시
       moved = true;
+    }
+
+    // 측정 중 상태 라벨 복구
+    if (running && $('statusText').textContent === 'GPS 약함') {
+      $('statusText').textContent = navigator.onLine ? '측정 중' : '측정 중 (오프라인)';
     }
 
     if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
