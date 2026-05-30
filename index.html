@@ -173,6 +173,7 @@
     font-size: 11px; color: var(--muted);
     text-align: center; margin-top: 16px; line-height: 1.5;
   }
+  .note:empty { margin: 0; }
   .accuracy { font-family:'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 12px; }
 
   /* 음성 알림 토글 */
@@ -356,7 +357,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:40</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:50</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -419,7 +420,7 @@
     </div>
   </div>
 
-  <div class="note" id="note">START를 누르면 위치 권한을 요청합니다.<br>야외에서 사용하면 정확도가 높아집니다.</div>
+  <div class="note" id="note"></div>
 
   <!-- 탭 버튼 -->
   <div class="tabs">
@@ -992,7 +993,7 @@
     $('mainBtn').className = 'btn-start';
     $('resetBtn').disabled = true;
     $('statusText').textContent = '대기 중';
-    $('note').innerHTML = 'START를 누르면 위치 권한을 요청합니다.<br>야외에서 사용하면 정확도가 높아집니다.';
+    $('note').innerHTML = '';
   }
 
   /* ===== 주행 완료 & 기록 저장 ===== */
