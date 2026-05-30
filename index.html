@@ -197,13 +197,22 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* map */
-  .map-wrap { position: relative; margin-bottom: 16px; }
+  .map-wrap { position: relative; margin-bottom: 16px; border-radius: 16px; overflow: hidden; }
   #map {
     height: 280px;
     border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.06);
     background: var(--panel);
     z-index: 0;
+    transition: transform 0.5s ease-out;
+  }
+  /* 진행 방향 화살표 마커 (지도가 회전하므로 항상 위=진행방향) */
+  .heading-marker .arrow {
+    width: 0; height: 0;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-bottom: 22px solid #d4ff3f;
+    filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
   }
   .leaflet-container { background: #0d1419; font-family: 'Space Mono', monospace; }
   .leaflet-control-attribution { font-size: 9px; background: rgba(10,14,18,0.7) !important; color: var(--muted) !important; }
@@ -364,6 +373,7 @@
 
   <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
   <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
+  <button id="headingBtn" class="voice-toggle" onclick="toggleHeading()">🧭 지도: 진행 방향 위</button>
 
   <div class="records">
     <div class="records-head">
@@ -435,6 +445,8 @@
   let marker = null;       // current position marker
   let trackPoints = [];    // [lat, lon] array
   let followMode = true;   // auto-recenter on rider
+  let curHeading = 0;      // 현재 진행 방향(도). 지도 회전에 사용
+  let headingMode = true;  // true=진행방향 위, false=북쪽 위
   let wakeLock = null;     // 화면 꺼짐 방지 핸들
   let allRecords = [];     // 로드된 전체 기록 (그래프 토글용)
 
@@ -452,9 +464,14 @@
       // 사용자가 지도를 직접 움직이면 자동 추적 해제
       map.on('dragstart', () => { followMode = false; });
       track = L.polyline([], { color: '#d4ff3f', weight: 5, opacity: 0.9, lineJoin: 'round' }).addTo(map);
-      marker = L.circleMarker([lat, lon], {
-        radius: 7, color: '#0a0e12', weight: 2, fillColor: '#d4ff3f', fillOpacity: 1
-      }).addTo(map);
+      // 진행 방향 화살표 마커 (지도가 회전하므로 항상 위를 가리킴)
+      const arrowIcon = L.divIcon({
+        className: 'heading-marker',
+        html: '<div class="arrow"></div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+      marker = L.marker([lat, lon], { icon: arrowIcon }).addTo(map);
     }
     setTimeout(() => map.invalidateSize(), 100);
     updateOnlineStatus();
@@ -582,6 +599,17 @@
     }
   }
 
+  function toggleHeading() {
+    headingMode = !headingMode;
+    const b = $('headingBtn');
+    if (b) {
+      b.textContent = headingMode ? '🧭 지도: 진행 방향 위' : '🧭 지도: 북쪽 위';
+      b.classList.toggle('off', !headingMode);
+    }
+    if (!headingMode) curHeading = 0; // 북쪽 모드면 회전 초기화
+    applyMapRotation();
+  }
+
   async function requestWakeLock() {
     if (!('wakeLock' in navigator)) return; // 미지원 브라우저는 조용히 패스
     try {
@@ -613,6 +641,21 @@
     track.setLatLngs(trackPoints);
     marker.setLatLng([lat, lon]);
     if (followMode) map.panTo([lat, lon], { animate: true, duration: 0.5 });
+    applyMapRotation();
+  }
+
+  // 진행 방향이 위로 가도록 지도 컨테이너를 회전
+  function applyMapRotation() {
+    const el = $('map');
+    if (!el) return;
+    if (headingMode) {
+      // 지도를 heading만큼 반대로 돌리면 진행 방향이 화면 위로 온다.
+      // 회전 시 모서리 빈 공간이 안 보이도록 함께 확대(scale).
+      el.style.transform = `scale(1.5) rotate(${-curHeading}deg)`;
+      el.style.transformOrigin = 'center center';
+    } else {
+      el.style.transform = 'none';
+    }
   }
 
   function haversine(lat1, lon1, lat2, lon2) {
@@ -623,6 +666,22 @@
     const a = Math.sin(dLat/2)**2 +
               Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // 두 좌표 사이 방위각(0=북, 시계방향, 도 단위)
+  function bearing(lat1, lon1, lat2, lon2) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+    const y = Math.sin(toRad(lon2-lon1)) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) -
+              Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lon2-lon1));
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+
+  // 각도를 부드럽게 보간 (급격한 회전/떨림 완화). 최단 경로로 회전.
+  function smoothHeading(from, to, factor) {
+    let diff = ((to - from + 540) % 360) - 180; // -180~180
+    return (from + diff * factor + 360) % 360;
   }
 
   function fmtTime(ms) {
@@ -663,6 +722,18 @@
         distance += d;
         moved = true;
         if (speed == null || speed < 0) kmh = (d / dt) * 3.6;
+
+        // 진행 방향(heading) 갱신: 일정 속도 이상일 때만 (저속 떨림 방지)
+        if (headingMode && kmh >= 3) {
+          let h;
+          if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
+            h = pos.coords.heading; // GPS가 주는 방향 우선
+          } else {
+            h = bearing(lastPos.lat, lastPos.lon, latitude, longitude);
+          }
+          // 부드럽게 회전 (급격한 떨림 완화)
+          curHeading = smoothHeading(curHeading, h, 0.4);
+        }
       }
     } else {
       // 첫 좌표: 지도 초기화 + 시작점 표시
@@ -776,6 +847,8 @@
     trackPoints = [];
     if (track) track.setLatLngs([]);
     followMode = true;
+    curHeading = 0;
+    applyMapRotation();
     // 고도 초기화
     totalAscent = 0; totalDescent = 0; lastAlt = null; altProfile = [];
     // 경계 알림 초기화
