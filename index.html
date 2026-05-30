@@ -914,6 +914,28 @@
     reset();
   }
 
+  // ===== 기록 저장소 (localStorage 기반 — 모든 브라우저/사이트에서 작동) =====
+  const STORE_KEY = 'ride_records_v1';
+
+  function loadAllFromStore() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveAllToStore(records) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(records));
+      return true;
+    } catch (e) {
+      console.error('저장 실패', e);
+      return false;
+    }
+  }
+
   async function saveRide() {
     const s = currentSummary();
     const now = new Date();
@@ -931,10 +953,11 @@
       altProfile: altProfile,   // 고도 프로필
       points: trackPoints   // 궤적 좌표도 함께 저장
     };
-    try {
-      await window.storage.set('ride:' + record.id, JSON.stringify(record));
-    } catch (e) {
-      console.error('저장 실패', e);
+    const all = loadAllFromStore();
+    all.push(record);
+    const ok = saveAllToStore(all);
+    if (!ok) {
+      alert('기록 저장에 실패했습니다. 브라우저 저장 공간이 부족하거나 사용할 수 없는 상태일 수 있습니다.');
     }
     $('saveModal').classList.remove('show');
     reset();
@@ -943,20 +966,7 @@
 
   // 저장된 모든 기록 불러와 날짜별로 렌더링
   async function loadRecords() {
-    let records = [];
-    try {
-      const res = await window.storage.list('ride:');
-      const keys = (res && res.keys) ? res.keys : [];
-      for (const k of keys) {
-        try {
-          const r = await window.storage.get(k.key || k);
-          if (r && r.value) records.push(JSON.parse(r.value));
-        } catch (e) { /* skip */ }
-      }
-    } catch (e) {
-      console.error('기록 로드 실패', e);
-    }
-
+    let records = loadAllFromStore();
     records.sort((a, b) => b.ts - a.ts); // 최신순
     allRecords = records;
     renderRecords(records);
@@ -1069,11 +1079,8 @@
 
   async function deleteRecord(id) {
     if (!confirm('이 기록을 삭제할까요?')) return;
-    try {
-      await window.storage.delete('ride:' + id);
-    } catch (e) {
-      console.error('삭제 실패', e);
-    }
+    const all = loadAllFromStore().filter(r => r.id !== id);
+    saveAllToStore(all);
     await loadRecords();
   }
 
