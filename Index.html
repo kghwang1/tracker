@@ -1,1 +1,955 @@
-index.html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RIDE — 자전거 트래커</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0e12;
+    --panel: #131a20;
+    --accent: #d4ff3f;
+    --accent-dim: #8fa82a;
+    --text: #e8eef0;
+    --muted: #5a6b74;
+    --danger: #ff5e57;
+    --grid: rgba(255,255,255,0.03);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Archivo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 120px; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .logo {
+    font-weight: 900;
+    font-size: 28px;
+    letter-spacing: -1px;
+  }
+  .logo span { color: var(--accent); }
+  .status {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+    transition: .3s;
+  }
+  .dot.live { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: pulse 1.5s infinite; }
+  .dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* big speed */
+  .speed-card {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 32px 24px 24px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .speed-card::before {
+    content:''; position:absolute; top:-60%; right:-30%;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(212,255,63,0.12), transparent 70%);
+    pointer-events: none;
+  }
+  .speed-label {
+    font-family:'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .speed-value {
+    font-size: 92px; font-weight: 900; line-height: .9;
+    letter-spacing: -4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .speed-unit { font-size: 18px; color: var(--accent); font-weight: 600; margin-left: 4px; letter-spacing: 0; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .stat {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 18px 20px;
+  }
+  .stat .label {
+    font-family:'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .stat .value { font-size: 34px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .stat .sub { font-size: 13px; color: var(--accent-dim); font-weight: 600; }
+
+  /* controls */
+  .controls {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, var(--bg) 30%);
+    padding: 30px 20px 28px;
+    display: flex; gap: 12px; justify-content: center;
+    max-width: 480px; margin: 0 auto;
+  }
+  button {
+    font-family:'Archivo', sans-serif;
+    font-weight: 800; font-size: 16px;
+    border: none; border-radius: 16px;
+    padding: 18px 0; cursor: pointer;
+    letter-spacing: .5px;
+    transition: transform .12s, opacity .2s;
+    flex: 1;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-start { background: var(--accent); color: #0a0e12; }
+  .btn-stop { background: var(--danger); color: #fff; }
+  .btn-reset { background: var(--panel); color: var(--text); border: 1px solid rgba(255,255,255,0.1); flex: 0 0 90px; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+
+  .note {
+    font-family:'Space Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    text-align: center; margin-top: 16px; line-height: 1.5;
+  }
+  .accuracy { font-family:'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 12px; }
+
+  /* 음성 알림 토글 */
+  .voice-toggle {
+    width: 100%; margin-top: 14px; padding: 13px 0;
+    background: var(--panel); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+    font-family:'Space Mono', monospace; font-size: 13px; font-weight: 700;
+    letter-spacing: .5px;
+  }
+  .voice-toggle.off { color: var(--muted); }
+  #regionBtn { margin-top: 8px; }
+  .region-now {
+    margin-top: 12px; text-align: center;
+    font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
+  }
+  .region-now span { color: var(--accent); font-weight: 700; }
+
+  /* 거리 알림 토스트 */
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%) translateY(20px);
+    bottom: 110px; z-index: 1500;
+    background: var(--accent); color: #0a0e12;
+    padding: 14px 28px; border-radius: 999px;
+    font-weight: 900; font-size: 18px; letter-spacing: -.3px;
+    box-shadow: 0 8px 28px rgba(212,255,63,0.35);
+    opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* map */
+  .map-wrap { position: relative; margin-bottom: 16px; }
+  #map {
+    height: 280px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--panel);
+    z-index: 0;
+  }
+  .leaflet-container { background: #0d1419; font-family: 'Space Mono', monospace; }
+  .leaflet-control-attribution { font-size: 9px; background: rgba(10,14,18,0.7) !important; color: var(--muted) !important; }
+  .leaflet-control-attribution a { color: var(--accent-dim) !important; }
+  .leaflet-bar a { background: var(--panel) !important; color: var(--text) !important; border-color: rgba(255,255,255,0.1) !important; }
+  .map-empty {
+    height: 280px; border-radius: 16px; margin-bottom: 16px;
+    border: 1px dashed rgba(255,255,255,0.1); background: var(--panel);
+    display: flex; align-items: center; justify-content: center;
+    font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
+    text-align: center; padding: 20px;
+  }
+  /* 오프라인 안내 배너 (지도 위에 겹쳐 표시) */
+  .offline-banner {
+    position: absolute; top: 10px; left: 10px; right: 10px; z-index: 500;
+    background: rgba(255,94,87,0.92); color: #fff;
+    border-radius: 12px; padding: 10px 14px;
+    font-family:'Space Mono', monospace; font-size: 11px; line-height: 1.45;
+    display: none; align-items: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .offline-banner.show { display: flex; }
+  .offline-banner .ico { font-size: 16px; flex: 0 0 auto; }
+
+  /* records */
+  .records { margin-top: 28px; }
+  .records-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .records-head h2 {
+    font-size: 13px; font-weight: 800; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted);
+    font-family:'Space Mono', monospace;
+  }
+  .records-count { font-family:'Space Mono', monospace; font-size: 11px; color: var(--accent-dim); }
+  .day-group { margin-bottom: 18px; }
+  .day-label {
+    font-family:'Space Mono', monospace; font-size: 11px; letter-spacing: 1px;
+    color: var(--accent); margin-bottom: 8px; padding-left: 2px;
+  }
+  .record {
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .record .rmain { flex: 1; }
+  .record .rtime {
+    font-family:'Space Mono', monospace; font-size: 11px; color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .record .rstats { font-size: 15px; font-weight: 700; }
+  .record .rstats span { color: var(--accent-dim); font-weight: 600; font-size: 13px; }
+  .record .profile {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .record .rdel {
+    background: none; border: none; color: var(--muted); font-size: 20px;
+    padding: 4px 8px; flex: 0 0 auto; cursor: pointer; border-radius: 8px;
+  }
+  .record .rdel:active { background: rgba(255,94,87,0.15); color: var(--danger); }
+  .empty-records {
+    font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
+    text-align: center; padding: 24px 0;
+  }
+
+  /* modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(5,8,11,0.8);
+    backdrop-filter: blur(4px); z-index: 1000;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 22px; padding: 28px 24px; width: 100%; max-width: 360px;
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { transform: scale(.9); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .modal h3 { font-size: 20px; font-weight: 900; letter-spacing: -.5px; margin-bottom: 6px; }
+  .modal .msub { font-family:'Space Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 18px; }
+  .modal-summary {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px;
+  }
+  .modal-summary .ms { background: var(--bg); border-radius: 12px; padding: 12px 14px; }
+  .modal-summary .ms .l { font-family:'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .modal-summary .ms .v { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+  .modal-summary .ms .v span { font-size: 12px; color: var(--accent-dim); }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns button { padding: 15px 0; font-size: 15px; }
+  .btn-discard { background: var(--bg); color: var(--muted); border: 1px solid rgba(255,255,255,0.1); }
+  .btn-save { background: var(--accent); color: #0a0e12; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">RIDE<span>.</span></div>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">대기 중</span>
+    </div>
+  </header>
+
+  <div class="speed-card">
+    <div class="speed-label">현재 속도</div>
+    <div>
+      <span class="speed-value" id="speed">0.0</span>
+      <span class="speed-unit">km/h</span>
+    </div>
+    <div class="accuracy" id="accuracy">GPS 정확도: —</div>
+  </div>
+
+  <div class="grid2">
+    <div class="stat">
+      <div class="label">이동 거리</div>
+      <div class="value"><span id="distance">0.00</span><span style="font-size:16px;color:var(--accent-dim)"> km</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">경과 시간</div>
+      <div class="value" id="time" style="font-family:'Space Mono',monospace">00:00</div>
+    </div>
+    <div class="stat">
+      <div class="label">평균 속도</div>
+      <div class="value"><span id="avg">0.0</span><span style="font-size:16px;color:var(--accent-dim)"> km/h</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">최고 속도</div>
+      <div class="value"><span id="max">0.0</span><span style="font-size:16px;color:var(--accent-dim)"> km/h</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">현재 고도</div>
+      <div class="value"><span id="alt">—</span><span style="font-size:16px;color:var(--accent-dim)"> m</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">누적 상승</div>
+      <div class="value"><span id="ascent">0</span><span style="font-size:16px;color:var(--accent-dim)"> m</span></div>
+    </div>
+  </div>
+
+  <div class="map-empty" id="mapEmpty">START를 누르면 이곳에<br>주행 궤적이 실시간으로 그려집니다</div>
+  <div class="map-wrap" id="mapWrap" style="display:none">
+    <div id="map"></div>
+    <div class="offline-banner" id="offlineBanner">
+      <span class="ico">⚠</span>
+      <span>인터넷 연결이 없어 지도는 표시되지 않습니다. 속도·거리 측정과 궤적 기록은 계속됩니다.</span>
+    </div>
+  </div>
+
+  <div class="note" id="note">START를 누르면 위치 권한을 요청합니다.<br>야외에서 사용하면 정확도가 높아집니다.</div>
+
+  <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
+  <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
+  <div class="region-now">현재 위치: <span id="region">—</span></div>
+
+  <div class="records">
+    <div class="records-head">
+      <h2>주행 기록</h2>
+      <span class="records-count" id="recCount"></span>
+    </div>
+    <div id="recordList"><div class="empty-records">아직 저장된 기록이 없습니다</div></div>
+  </div>
+</div>
+
+<!-- 저장 확인 모달 -->
+<div class="modal-bg" id="saveModal">
+  <div class="modal">
+    <h3>주행 완료</h3>
+    <div class="msub" id="modalDate">이 기록을 저장할까요?</div>
+    <div class="modal-summary">
+      <div class="ms"><div class="l">거리</div><div class="v" id="mDist">0.00<span> km</span></div></div>
+      <div class="ms"><div class="l">시간</div><div class="v" id="mTime">00:00</div></div>
+      <div class="ms"><div class="l">평균 속도</div><div class="v" id="mAvg">0.0<span> km/h</span></div></div>
+      <div class="ms"><div class="l">최고 속도</div><div class="v" id="mMax">0.0<span> km/h</span></div></div>
+      <div class="ms"><div class="l">누적 상승</div><div class="v" id="mAsc">0<span> m</span></div></div>
+      <div class="ms"><div class="l">누적 하강</div><div class="v" id="mDes">0<span> m</span></div></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-discard" onclick="discardRide()">저장 안 함</button>
+      <button class="btn-save" onclick="saveRide()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="controls">
+  <button class="btn-reset" id="resetBtn" onclick="finishRide()" disabled>완료</button>
+  <button class="btn-start" id="mainBtn" onclick="toggle()">START</button>
+</div>
+
+<script>
+  let watchId = null;
+  let running = false;
+  let lastPos = null;
+  let distance = 0;        // meters
+  let maxSpeed = 0;        // km/h
+  let startTime = 0;
+  let elapsedBefore = 0;   // ms accumulated before pauses
+  let timerInt = null;
+  let nextMilestone = 2;   // 다음 음성 알림 거리 (km)
+  const MILESTONE_STEP = 2; // 알림 간격 (km)
+  let voiceOn = true;      // 음성 알림 on/off
+
+  // 행정구역 경계 알림
+  let currentRegion = null;   // 마지막으로 확인된 시·군·구
+  let lastGeoCheck = 0;       // 마지막 역지오코딩 시각 (ms)
+  let lastGeoPos = null;      // 마지막 조회 좌표
+  let geoChecking = false;    // 조회 진행 중 플래그
+  let regionAlertOn = true;   // 경계 알림 on/off
+  const GEO_MIN_INTERVAL = 20000;  // 최소 조회 간격 20초
+  const GEO_MIN_MOVE = 400;        // 최소 이동 400m마다 조회
+
+  // 고도 상태
+  let totalAscent = 0;     // 누적 상승 (m)
+  let totalDescent = 0;    // 누적 하강 (m)
+  let lastAlt = null;      // 직전 채택 고도 (m)
+  let altProfile = [];     // [{dist: km, alt: m}] 고도 프로필
+
+  // map state
+  let map = null;
+  let track = null;        // polyline
+  let marker = null;       // current position marker
+  let trackPoints = [];    // [lat, lon] array
+  let followMode = true;   // auto-recenter on rider
+  let wakeLock = null;     // 화면 꺼짐 방지 핸들
+  let allRecords = [];     // 로드된 전체 기록 (그래프 토글용)
+
+  const $ = id => document.getElementById(id);
+
+  function initMap(lat, lon) {
+    $('mapEmpty').style.display = 'none';
+    $('mapWrap').style.display = 'block';
+    if (!map) {
+      map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lon], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      // 사용자가 지도를 직접 움직이면 자동 추적 해제
+      map.on('dragstart', () => { followMode = false; });
+      track = L.polyline([], { color: '#d4ff3f', weight: 5, opacity: 0.9, lineJoin: 'round' }).addTo(map);
+      marker = L.circleMarker([lat, lon], {
+        radius: 7, color: '#0a0e12', weight: 2, fillColor: '#d4ff3f', fillOpacity: 1
+      }).addTo(map);
+    }
+    setTimeout(() => map.invalidateSize(), 100);
+    updateOnlineStatus();
+  }
+
+  // 인터넷 연결 상태에 따라 배너 표시/숨김
+  function updateOnlineStatus() {
+    const online = navigator.onLine;
+    const banner = $('offlineBanner');
+    if (banner) banner.classList.toggle('show', !online);
+    if (!online) {
+      $('statusText').textContent = running ? '측정 중 (오프라인)' : $('statusText').textContent;
+    }
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+
+  // ===== 음성 출력 (공용) =====
+  function speak(text) {
+    if (!voiceOn || !('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR';
+      u.rate = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* 무시 */ }
+  }
+
+  // ===== 거리 음성 알림 =====
+  function announceDistance(km) {
+    showToast(`${km}km 통과`);
+    speak(`${km}킬로미터 지났습니다`);
+  }
+
+  // ===== 행정구역 경계 알림 =====
+  function announceRegion(name) {
+    showToast(`${name} 진입`);
+    speak(`${name}에 진입합니다`);
+  }
+
+  // 좌표 -> 시·군·구 이름 (Nominatim 역지오코딩)
+  async function checkRegion(lat, lon) {
+    if (!regionAlertOn || !navigator.onLine || geoChecking) return;
+    const now = Date.now();
+    // 시간·거리 조건을 모두 만족할 때만 조회 (서비스 부하/제한 방지)
+    if (now - lastGeoCheck < GEO_MIN_INTERVAL) return;
+    if (lastGeoPos) {
+      const moved = haversine(lastGeoPos.lat, lastGeoPos.lon, lat, lon);
+      if (moved < GEO_MIN_MOVE) return;
+    }
+    geoChecking = true;
+    lastGeoCheck = now;
+    lastGeoPos = { lat, lon };
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=ko`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('geocode ' + res.status);
+      const data = await res.json();
+      const a = data.address || {};
+      // 한국 시·군·구는 필드가 제각각이라 우선순위로 탐색
+      const region = a.city || a.county || a.town || a.borough || a.municipality || a.district || a.province || null;
+      if (region && region !== currentRegion) {
+        // 첫 측정 시작 직후엔 알리지 않고 기준만 설정, 이후 변경부터 알림
+        if (currentRegion !== null) announceRegion(region);
+        currentRegion = region;
+        $('region').textContent = region;
+      } else if (region && currentRegion === null) {
+        currentRegion = region;
+        $('region').textContent = region;
+      }
+    } catch (e) {
+      // 조회 실패는 조용히 무시 (측정에는 영향 없음)
+    } finally {
+      geoChecking = false;
+    }
+  }
+
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = $('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function toggleVoice() {
+    voiceOn = !voiceOn;
+    const b = $('voiceBtn');
+    if (b) {
+      b.textContent = voiceOn ? '🔊 음성 알림 켜짐' : '🔇 음성 알림 꺼짐';
+      b.classList.toggle('off', !voiceOn);
+    }
+    // 켤 때 한 번 짧게 테스트 음성 (사용자 동작으로 오디오 권한 확보)
+    if (voiceOn) speak('음성 알림이 켜졌습니다');
+  }
+
+  function toggleRegion() {
+    regionAlertOn = !regionAlertOn;
+    const b = $('regionBtn');
+    if (b) {
+      b.textContent = regionAlertOn ? '📍 지역 진입 알림 켜짐' : '📍 지역 진입 알림 꺼짐';
+      b.classList.toggle('off', !regionAlertOn);
+    }
+  }
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return; // 미지원 브라우저는 조용히 패스
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { /* 해제됨 */ });
+    } catch (e) {
+      // 권한 거부 등 — 측정에는 영향 없음
+      console.warn('Wake Lock 요청 실패:', e.message);
+    }
+  }
+
+  async function releaseWakeLock() {
+    if (wakeLock) {
+      try { await wakeLock.release(); } catch (e) {}
+      wakeLock = null;
+    }
+  }
+
+  // 다른 앱(스포티파이 등) 갔다 돌아오면 화면 꺼짐 방지를 다시 건다
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && running) {
+      requestWakeLock();
+    }
+  });
+
+  function addTrackPoint(lat, lon) {
+    if (!map) initMap(lat, lon);
+    trackPoints.push([lat, lon]);
+    track.setLatLngs(trackPoints);
+    marker.setLatLng([lat, lon]);
+    if (followMode) map.panTo([lat, lon], { animate: true, duration: 0.5 });
+  }
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function fmtTime(ms) {
+    const s = Math.floor(ms/1000);
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const sec = s%60;
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+
+  function updateTime() {
+    const total = elapsedBefore + (running ? Date.now() - startTime : 0);
+    $('time').textContent = fmtTime(total);
+    const hrs = total / 3600000;
+    const distKm = distance / 1000;
+    if (hrs > 0) $('avg').textContent = (distKm / hrs).toFixed(1);
+  }
+
+  function onPos(pos) {
+    const { latitude, longitude, speed, accuracy, altitude, altitudeAccuracy } = pos.coords;
+    $('accuracy').textContent = `GPS 정확도: ±${accuracy ? accuracy.toFixed(0) : '—'} m`;
+
+    // speed: prefer device-reported (m/s), else compute
+    let kmh = 0;
+    if (speed != null && speed >= 0) {
+      kmh = speed * 3.6;
+    }
+
+    let moved = false;
+    if (lastPos) {
+      const d = haversine(lastPos.lat, lastPos.lon, latitude, longitude);
+      const dt = (pos.timestamp - lastPos.t) / 1000; // s
+      // 저속 라이딩용 민감 필터: 작은 이동도 잡되, 명백한 GPS 튐만 배제
+      // 정지 중 노이즈는 보통 정확도 값보다 작게 흩어지므로 그것만 거름
+      const noiseFloor = Math.max(1, (accuracy || 0) * 0.25);
+      if (d > noiseFloor && dt > 0) {
+        distance += d;
+        moved = true;
+        if (speed == null || speed < 0) kmh = (d / dt) * 3.6;
+      }
+    } else {
+      // 첫 좌표: 지도 초기화 + 시작점 표시
+      moved = true;
+    }
+
+    if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
+    $('speed').textContent = kmh.toFixed(1);
+    $('distance').textContent = (distance/1000).toFixed(2);
+
+    // ===== 2km 마다 음성 알림 =====
+    const distKm = distance / 1000;
+    while (distKm >= nextMilestone) {
+      announceDistance(nextMilestone);
+      nextMilestone += MILESTONE_STEP;
+    }
+
+    // ===== 고도 처리 =====
+    if (altitude != null && !isNaN(altitude)) {
+      $('alt').textContent = Math.round(altitude);
+      // GPS 고도는 잡음이 크므로, 의미 있는 변화일 때만 누적.
+      // 임계값 = 수직 정확도 또는 최소 3m 중 큰 값
+      const altThresh = Math.max(3, (altitudeAccuracy || 0));
+      if (lastAlt == null) {
+        lastAlt = altitude;
+      } else {
+        const diff = altitude - lastAlt;
+        if (Math.abs(diff) >= altThresh) {
+          if (diff > 0) totalAscent += diff;
+          else totalDescent += -diff;
+          lastAlt = altitude;
+          $('ascent').textContent = Math.round(totalAscent);
+        }
+      }
+      // 고도 프로필 기록 (이동한 지점마다)
+      if (moved) {
+        altProfile.push({ dist: +(distance/1000).toFixed(3), alt: Math.round(altitude) });
+      }
+    }
+
+    // 노이즈 필터를 통과한 점만 궤적에 추가 (정지 중 헛점 방지)
+    if (moved) addTrackPoint(latitude, longitude);
+
+    // 행정구역 경계 확인 (조건 만족 시에만 실제 조회)
+    checkRegion(latitude, longitude);
+
+    lastPos = { lat: latitude, lon: longitude, t: pos.timestamp };
+  }
+
+  function onErr(err) {
+    $('dot').className = 'dot error';
+    $('statusText').textContent = '오류';
+    $('note').innerHTML = '위치를 가져올 수 없습니다: ' + err.message +
+      '<br>브라우저 설정에서 위치 권한을 허용해 주세요.';
+  }
+
+  function toggle() {
+    if (!running) start(); else stop();
+  }
+
+  function start() {
+    if (!navigator.geolocation) {
+      $('note').textContent = '이 브라우저는 위치 기능을 지원하지 않습니다.';
+      return;
+    }
+    running = true;
+    startTime = Date.now();
+    lastPos = null;
+    followMode = true;
+    $('mainBtn').textContent = 'STOP';
+    $('mainBtn').className = 'btn-stop';
+    $('resetBtn').disabled = false;
+    $('dot').className = 'dot live';
+    $('statusText').textContent = navigator.onLine ? '측정 중' : '측정 중 (오프라인)';
+    $('note').innerHTML = '이동 중입니다. 측정 중에는 화면이 자동으로 꺼지지 않습니다.';
+    updateOnlineStatus();
+    requestWakeLock();
+
+    watchId = navigator.geolocation.watchPosition(onPos, onErr, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000
+    });
+    timerInt = setInterval(updateTime, 200);
+  }
+
+  function stop() {
+    running = false;
+    elapsedBefore += Date.now() - startTime;
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    clearInterval(timerInt);
+    releaseWakeLock();
+    $('mainBtn').textContent = 'RESUME';
+    $('mainBtn').className = 'btn-start';
+    $('dot').className = 'dot';
+    $('statusText').textContent = '일시정지';
+    $('speed').textContent = '0.0';
+    $('note').innerHTML = '일시정지됨. RESUME으로 이어서 측정합니다.';
+  }
+
+  function reset() {
+    if (running) stop();
+    releaseWakeLock();
+    distance = 0; maxSpeed = 0; elapsedBefore = 0; lastPos = null;
+    nextMilestone = MILESTONE_STEP;
+    // 궤적 초기화
+    trackPoints = [];
+    if (track) track.setLatLngs([]);
+    followMode = true;
+    // 고도 초기화
+    totalAscent = 0; totalDescent = 0; lastAlt = null; altProfile = [];
+    // 경계 알림 초기화
+    currentRegion = null; lastGeoCheck = 0; lastGeoPos = null;
+    if ($('region')) $('region').textContent = '—';
+    $('mapWrap').style.display = 'none';
+    $('mapEmpty').style.display = 'flex';
+    $('speed').textContent = '0.0';
+    $('distance').textContent = '0.00';
+    $('time').textContent = '00:00';
+    $('avg').textContent = '0.0';
+    $('max').textContent = '0.0';
+    $('alt').textContent = '—';
+    $('ascent').textContent = '0';
+    $('accuracy').textContent = 'GPS 정확도: —';
+    $('mainBtn').textContent = 'START';
+    $('mainBtn').className = 'btn-start';
+    $('resetBtn').disabled = true;
+    $('statusText').textContent = '대기 중';
+    $('note').innerHTML = 'START를 누르면 위치 권한을 요청합니다.<br>야외에서 사용하면 정확도가 높아집니다.';
+  }
+
+  /* ===== 주행 완료 & 기록 저장 ===== */
+
+  // 현재 주행 요약 계산
+  function currentSummary() {
+    const total = elapsedBefore + (running ? Date.now() - startTime : 0);
+    const distKm = distance / 1000;
+    const hrs = total / 3600000;
+    return {
+      distance: distKm,
+      durationMs: total,
+      avg: hrs > 0 ? distKm / hrs : 0,
+      max: maxSpeed,
+      ascent: totalAscent,
+      descent: totalDescent
+    };
+  }
+
+  // 완료 버튼: 측정 멈추고 저장 여부 모달
+  function finishRide() {
+    if (running) stop();
+    const s = currentSummary();
+    if (s.distance === 0 && s.durationMs < 1000) {
+      // 기록할 게 없으면 그냥 초기화
+      reset();
+      return;
+    }
+    const now = new Date();
+    $('modalDate').textContent =
+      `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 · 이 기록을 저장할까요?`;
+    $('mDist').innerHTML = s.distance.toFixed(2) + '<span> km</span>';
+    $('mTime').textContent = fmtTime(s.durationMs);
+    $('mAvg').innerHTML = s.avg.toFixed(1) + '<span> km/h</span>';
+    $('mMax').innerHTML = s.max.toFixed(1) + '<span> km/h</span>';
+    $('mAsc').innerHTML = Math.round(s.ascent) + '<span> m</span>';
+    $('mDes').innerHTML = Math.round(s.descent) + '<span> m</span>';
+    $('saveModal').classList.add('show');
+  }
+
+  function discardRide() {
+    $('saveModal').classList.remove('show');
+    reset();
+  }
+
+  async function saveRide() {
+    const s = currentSummary();
+    const now = new Date();
+    const dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const record = {
+      id: 'ride_' + Date.now(),
+      ts: now.getTime(),
+      dateKey,
+      distance: +s.distance.toFixed(3),
+      durationMs: s.durationMs,
+      avg: +s.avg.toFixed(2),
+      max: +s.max.toFixed(2),
+      ascent: Math.round(s.ascent),
+      descent: Math.round(s.descent),
+      altProfile: altProfile,   // 고도 프로필
+      points: trackPoints   // 궤적 좌표도 함께 저장
+    };
+    try {
+      await window.storage.set('ride:' + record.id, JSON.stringify(record));
+    } catch (e) {
+      console.error('저장 실패', e);
+    }
+    $('saveModal').classList.remove('show');
+    reset();
+    await loadRecords();
+  }
+
+  // 저장된 모든 기록 불러와 날짜별로 렌더링
+  async function loadRecords() {
+    let records = [];
+    try {
+      const res = await window.storage.list('ride:');
+      const keys = (res && res.keys) ? res.keys : [];
+      for (const k of keys) {
+        try {
+          const r = await window.storage.get(k.key || k);
+          if (r && r.value) records.push(JSON.parse(r.value));
+        } catch (e) { /* skip */ }
+      }
+    } catch (e) {
+      console.error('기록 로드 실패', e);
+    }
+
+    records.sort((a, b) => b.ts - a.ts); // 최신순
+    allRecords = records;
+    renderRecords(records);
+  }
+
+  function fmtDateLabel(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const days = ['일','월','화','수','목','금','토'];
+    const dt = new Date(y, m-1, d);
+    const today = new Date();
+    const isToday = dt.toDateString() === today.toDateString();
+    const yest = new Date(today); yest.setDate(today.getDate()-1);
+    const isYest = dt.toDateString() === yest.toDateString();
+    let prefix = '';
+    if (isToday) prefix = '오늘 · ';
+    else if (isYest) prefix = '어제 · ';
+    return `${prefix}${y}.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')} (${days[dt.getDay()]})`;
+  }
+
+  function renderRecords(records) {
+    const list = $('recordList');
+    $('recCount').textContent = records.length > 0 ? `총 ${records.length}회` : '';
+    if (records.length === 0) {
+      list.innerHTML = '<div class="empty-records">아직 저장된 기록이 없습니다</div>';
+      return;
+    }
+    // 날짜별 그룹화
+    const groups = {};
+    for (const r of records) {
+      (groups[r.dateKey] = groups[r.dateKey] || []).push(r);
+    }
+    const dateKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+    let html = '';
+    for (const dk of dateKeys) {
+      html += `<div class="day-group"><div class="day-label">${fmtDateLabel(dk)}</div>`;
+      for (const r of groups[dk]) {
+        const t = new Date(r.ts);
+        const hh = String(t.getHours()).padStart(2,'0');
+        const mm = String(t.getMinutes()).padStart(2,'0');
+        const hasAlt = r.altProfile && r.altProfile.length > 1;
+        const ascDesc = (r.ascent != null)
+          ? ` &nbsp; ↑${r.ascent} <span>m</span> ↓${r.descent||0} <span>m</span>`
+          : '';
+        html += `
+          <div class="record">
+            <div class="rmain" ${hasAlt ? `onclick="toggleProfile('${r.id}')" style="cursor:pointer"` : ''}>
+              <div class="rtime">${hh}:${mm} 출발 · ${fmtTime(r.durationMs)}${hasAlt ? ' · 탭하면 고도 그래프 ▾' : ''}</div>
+              <div class="rstats">${r.distance.toFixed(2)} <span>km</span> &nbsp; 평균 ${r.avg.toFixed(1)} <span>km/h</span>${ascDesc}</div>
+              <div class="profile" id="prof_${r.id}" style="display:none"></div>
+            </div>
+            <button class="rdel" onclick="deleteRecord('${r.id}')">×</button>
+          </div>`;
+      }
+      html += '</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  // 기록 탭 시 고도 프로필 그래프 펼치기/접기
+  function toggleProfile(id) {
+    const el = $('prof_' + id);
+    if (!el) return;
+    if (el.style.display === 'none') {
+      const rec = allRecords.find(r => r.id === id);
+      if (rec && rec.altProfile && rec.altProfile.length > 1) {
+        el.innerHTML = buildAltSVG(rec.altProfile);
+      }
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  // 고도 프로필을 SVG 면적 그래프로 생성
+  function buildAltSVG(profile) {
+    const W = 300, H = 110, padL = 4, padR = 4, padT = 10, padB = 16;
+    const xs = profile.map(p => p.dist);
+    const ys = profile.map(p => p.alt);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    let minY = Math.min(...ys), maxY = Math.max(...ys);
+    if (maxY - minY < 5) { maxY += 3; minY -= 3; } // 평지여도 납작하지 않게
+    const sx = x => padL + (maxX === minX ? 0 : (x - minX) / (maxX - minX)) * (W - padL - padR);
+    const sy = y => padT + (1 - (y - minY) / (maxY - minY)) * (H - padT - padB);
+
+    let line = '', area = '';
+    profile.forEach((p, i) => {
+      const X = sx(p.dist).toFixed(1), Y = sy(p.alt).toFixed(1);
+      line += (i === 0 ? 'M' : 'L') + X + ' ' + Y + ' ';
+    });
+    const first = sx(profile[0].dist).toFixed(1);
+    const last = sx(profile[profile.length-1].dist).toFixed(1);
+    const base = (H - padB).toFixed(1);
+    area = `M${first} ${base} ` + line.replace('M','L').trim() + ` L${last} ${base} Z`;
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block">
+        <defs>
+          <linearGradient id="altg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#d4ff3f" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#d4ff3f" stop-opacity="0.02"/>
+          </linearGradient>
+        </defs>
+        <path d="${area}" fill="url(#altg)"/>
+        <path d="${line.trim()}" fill="none" stroke="#d4ff3f" stroke-width="2" stroke-linejoin="round"/>
+        <text x="${padL}" y="9" fill="#5a6b74" font-size="9" font-family="monospace">${Math.round(maxY)}m</text>
+        <text x="${padL}" y="${H-4}" fill="#5a6b74" font-size="9" font-family="monospace">${Math.round(minY)}m</text>
+        <text x="${W-padR}" y="${H-4}" fill="#5a6b74" font-size="9" font-family="monospace" text-anchor="end">${maxX.toFixed(1)}km</text>
+      </svg>`;
+  }
+
+  async function deleteRecord(id) {
+    if (!confirm('이 기록을 삭제할까요?')) return;
+    try {
+      await window.storage.delete('ride:' + id);
+    } catch (e) {
+      console.error('삭제 실패', e);
+    }
+    await loadRecords();
+  }
+
+  // 앱 시작 시 저장된 기록 로드
+  loadRecords();
+</script>
+</body>
+</html>
