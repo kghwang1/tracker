@@ -328,7 +328,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 17:05</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:10</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -721,30 +721,37 @@
     const { latitude, longitude, speed, accuracy, altitude, altitudeAccuracy } = pos.coords;
     $('accuracy').textContent = `GPS 정확도: ±${accuracy ? accuracy.toFixed(0) : '—'} m`;
 
-    // GPS 정확도가 너무 나쁘면(신호 불량) 이 좌표는 신뢰하지 않고 건너뜀.
+    // 지도는 정확도와 상관없이 일단 띄운다 (첫 위치를 받으면 지도 표시).
+    // 단, 거리·속도 계산은 정확도가 나쁜 좌표를 거른다.
+    if (!map) initMap(latitude, longitude);
+
+    // GPS 정확도가 너무 나쁘면(신호 불량) 거리/속도 계산에서 제외.
     // 위치가 크게 튀어 정지 중에도 속도/거리가 부풀려지는 것을 방지.
-    const ACC_LIMIT = 25; // m
-    if (accuracy != null && accuracy > ACC_LIMIT) {
+    const ACC_LIMIT = 40; // m (이보다 나쁘면 측정 계산은 건너뜀)
+    const accBad = (accuracy != null && accuracy > ACC_LIMIT);
+    if (accBad) {
       $('speed').textContent = '0.0';
       $('statusText').textContent = running ? 'GPS 약함' : $('statusText').textContent;
-      return; // 이 좌표는 무시 (lastPos도 갱신하지 않음)
+      // 지도 마커는 대략 위치라도 갱신해두되, 거리·속도엔 반영 안 함
+      if (marker) marker.setLatLng([latitude, longitude]);
+      return;
     }
 
     // speed: prefer device-reported (m/s), else compute
     let kmh = 0;
     if (speed != null && speed >= 0) {
       kmh = speed * 3.6;
-      // 자전거로 불가능한 속도는 GPS 오류로 보고 0 처리
-      if (kmh > 40) kmh = 0;
+      if (kmh > 40) kmh = 0;   // 자전거로 불가능 → GPS 오류
+      if (kmh < 1.5) kmh = 0;  // 사실상 정지 → 미세 속도 제거
     }
 
     let moved = false;
     if (lastPos) {
       const d = haversine(lastPos.lat, lastPos.lon, latitude, longitude);
       const dt = (pos.timestamp - lastPos.t) / 1000; // s
-      // 이동 인정 임계값: 정확도에 비례(정확도 좋을수록 작은 이동도 인정).
-      // 정확도가 나쁠수록 더 크게 잡아 헛이동 차단.
-      const noiseFloor = Math.max(3, (accuracy || 0) * 0.7);
+      // 이동 인정 임계값: 정확도에 비례하되 최소 6m 이상 움직여야 인정.
+      // 정지 중 GPS가 수 m씩 흔들리는 것을 이동으로 오인하지 않도록 함.
+      const noiseFloor = Math.max(6, (accuracy || 0) * 1.0);
 
       // 좌표로 계산한 순간 속도
       const calcKmh = dt > 0 ? (d / dt) * 3.6 : 0;
@@ -755,7 +762,9 @@
         return;
       }
 
-      if (d > noiseFloor && dt > 0) {
+      // 이동 거리가 임계값을 넘고, 순간 속도도 1.5km/h 이상일 때만 실제 이동으로 인정
+      // (둘 다 만족해야 정지 중 미세 흔들림이 거리·속도에 안 잡힘)
+      if (d > noiseFloor && dt > 0 && calcKmh >= 1.5) {
         distance += d;
         moved = true;
         if (speed == null || speed < 0) kmh = calcKmh;
