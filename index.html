@@ -152,10 +152,11 @@
   .voice-toggle.off { color: var(--muted); }
   #regionBtn { margin-top: 8px; }
   .region-now {
-    margin-top: 12px; text-align: center;
+    margin-top: 12px; text-align: center; line-height: 1.5;
     font-family:'Space Mono', monospace; font-size: 12px; color: var(--muted);
+    word-break: keep-all;
   }
-  .region-now span { color: var(--accent); font-weight: 700; }
+  .region-now span { color: var(--accent); font-weight: 700; font-size: 14px; }
 
   /* 거리 알림 토스트 */
   .toast {
@@ -440,14 +441,16 @@
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // ===== 음성 출력 (공용) =====
-  function speak(text) {
+  // ===== 음성 출력 (공용) — 2회 반복 =====
+  function speak(text, times = 2) {
     if (!voiceOn || !('speechSynthesis' in window)) return;
     try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ko-KR';
-      u.rate = 1.0;
-      window.speechSynthesis.speak(u);
+      for (let i = 0; i < times; i++) {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ko-KR';
+        u.rate = 1.0;
+        window.speechSynthesis.speak(u); // 큐에 쌓여 연달아 재생됨
+      }
     } catch (e) { /* 무시 */ }
   }
 
@@ -463,7 +466,8 @@
     speak(`${name}에 진입합니다`);
   }
 
-  // 좌표 -> 시·군·구 이름 (Nominatim 역지오코딩)
+  // 좌표 -> 상세 주소 (Nominatim 역지오코딩)
+  // 표시 형식 예: "광양시 옥곡면 매화마을"
   async function checkRegion(lat, lon) {
     if (!regionAlertOn || !navigator.onLine || geoChecking) return;
     const now = Date.now();
@@ -477,21 +481,35 @@
     lastGeoCheck = now;
     lastGeoPos = { lat, lon };
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=ko`;
+      // zoom=16: 마을·리 단위까지 상세하게 받음
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&accept-language=ko`;
       const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('geocode ' + res.status);
       const data = await res.json();
       const a = data.address || {};
-      // 한국 시·군·구는 필드가 제각각이라 우선순위로 탐색
-      const region = a.city || a.county || a.town || a.borough || a.municipality || a.district || a.province || null;
-      if (region && region !== currentRegion) {
-        // 첫 측정 시작 직후엔 알리지 않고 기준만 설정, 이후 변경부터 알림
-        if (currentRegion !== null) announceRegion(region);
-        currentRegion = region;
-        $('region').textContent = region;
-      } else if (region && currentRegion === null) {
-        currentRegion = region;
-        $('region').textContent = region;
+
+      // 1) 시·군·구 (진입 알림 기준)
+      const cityLevel = a.city || a.county || a.town || a.borough || a.municipality || null;
+      // 2) 읍·면·동
+      const townLevel = a.town || a.township || a.suburb || a.city_district || a.district || null;
+      // 3) 마을·리 (가장 세부)
+      const villageLevel = a.village || a.hamlet || a.neighbourhood || a.quarter || null;
+
+      // 중복 제거하며 순서대로 조합 (시군 → 읍면동 → 마을)
+      const parts = [];
+      [cityLevel, townLevel, villageLevel].forEach(p => {
+        if (p && !parts.includes(p)) parts.push(p);
+      });
+      const fullAddr = parts.length ? parts.join(' ') : (a.province || null);
+
+      if (fullAddr) {
+        $('region').textContent = fullAddr;
+        // 주소가 바뀌면 그 주소로 진입 알림 (읍·면·동/마을이 바뀔 때마다)
+        if (fullAddr !== currentRegion) {
+          // 첫 조회 때는 기준만 설정하고 알리지 않음
+          if (currentRegion !== null) announceRegion(fullAddr);
+          currentRegion = fullAddr;
+        }
       }
     } catch (e) {
       // 조회 실패는 조용히 무시 (측정에는 영향 없음)
@@ -500,14 +518,17 @@
     }
   }
 
-  let toastTimer = null;
+  let toastTimer = null, toastTimer2 = null, toastTimer3 = null;
   function showToast(msg) {
     const t = $('toast');
     if (!t) return;
+    clearTimeout(toastTimer); clearTimeout(toastTimer2); clearTimeout(toastTimer3);
     t.textContent = msg;
     t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    // 2회 깜빡임: 표시 → 잠깐 숨김 → 다시 표시 → 종료
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+    toastTimer2 = setTimeout(() => { t.textContent = msg; t.classList.add('show'); }, 1800);
+    toastTimer3 = setTimeout(() => t.classList.remove('show'), 3300);
   }
 
   function toggleVoice() {
