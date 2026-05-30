@@ -197,11 +197,19 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* map */
-  .map-wrap { position: relative; margin-bottom: 16px; border-radius: 16px; overflow: hidden; }
+  .map-wrap {
+    position: relative; margin-bottom: 16px; border-radius: 16px;
+    overflow: hidden; height: 280px;
+  }
+  /* 보이는 창(map-wrap)보다 지도를 크게 만들어, 회전해도 모서리 빈틈이 안 보이게 함.
+     중앙 정렬(음수 margin)이라 화살표(중심)와 줌버튼 위치가 정상 유지됨. */
   #map {
-    height: 280px;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.06);
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 142%; height: 142%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    transform-origin: center center;
+    border: none;
     background: var(--panel);
     z-index: 0;
     transition: transform 0.5s ease-out;
@@ -214,6 +222,8 @@
     border-bottom: 22px solid #d4ff3f;
     filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
   }
+  /* 줌 버튼이 회전된 지도 안에서도 화면 기준 좌상단에 보이도록 */
+  .leaflet-control-zoom { margin-top: 10px !important; margin-left: 10px !important; }
   .leaflet-container { background: #0d1419; font-family: 'Space Mono', monospace; }
   .leaflet-control-attribution { font-size: 9px; background: rgba(10,14,18,0.7) !important; color: var(--muted) !important; }
   .leaflet-control-attribution a { color: var(--accent-dim) !important; }
@@ -651,11 +661,10 @@
     if (!el) return;
     if (headingMode) {
       // 지도를 heading만큼 반대로 돌리면 진행 방향이 화면 위로 온다.
-      // 회전 시 모서리 빈 공간이 안 보이도록 함께 확대(scale).
-      el.style.transform = `scale(1.5) rotate(${-curHeading}deg)`;
-      el.style.transformOrigin = 'center center';
+      // (지도를 창보다 크게 만들어뒀으므로 모서리 빈틈은 안 보임)
+      el.style.transform = `translate(-50%, -50%) rotate(${-curHeading}deg)`;
     } else {
-      el.style.transform = 'none';
+      el.style.transform = `translate(-50%, -50%) rotate(0deg)`;
     }
   }
 
