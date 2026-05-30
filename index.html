@@ -473,7 +473,8 @@
       });
       marker = L.marker([lat, lon], { icon: arrowIcon }).addTo(map);
     }
-    setTimeout(() => map.invalidateSize(), 100);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+    setTimeout(() => { if (map) map.invalidateSize(); }, 600);
     updateOnlineStatus();
   }
 
