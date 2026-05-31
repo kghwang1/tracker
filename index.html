@@ -357,7 +357,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:15</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:30</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -541,22 +541,30 @@
 
   const $ = id => document.getElementById(id);
 
+  let mapInitializing = false;
   function initMap(lat, lon) {
     $('mapEmpty').style.display = 'none';
     $('mapWrap').style.display = 'block';
-    if (!map) {
-      map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lon], 16);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-      // 사용자가 지도를 직접 움직이면 자동 추적 해제
-      map.on('dragstart', () => { followMode = false; });
-      track = L.polyline([], { color: '#d4ff3f', weight: 5, opacity: 0.9, lineJoin: 'round' }).addTo(map);
-      // 현재 위치 원형 마커
-      marker = L.circleMarker([lat, lon], {
-        radius: 8, color: '#0a0e12', weight: 3, fillColor: '#d4ff3f', fillOpacity: 1
-      }).addTo(map);
+    if (!map && !mapInitializing) {
+      mapInitializing = true;
+      try {
+        map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lon], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+        // 사용자가 지도를 직접 움직이면 자동 추적 해제
+        map.on('dragstart', () => { followMode = false; });
+        track = L.polyline([], { color: '#d4ff3f', weight: 5, opacity: 0.9, lineJoin: 'round' }).addTo(map);
+        // 현재 위치 원형 마커
+        marker = L.circleMarker([lat, lon], {
+          radius: 8, color: '#0a0e12', weight: 3, fillColor: '#d4ff3f', fillOpacity: 1
+        }).addTo(map);
+      } catch (e) {
+        // 생성 실패 시 다음 호출에서 재시도할 수 있도록 정리
+        map = null;
+      }
+      mapInitializing = false;
     }
     setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     setTimeout(() => { if (map) map.invalidateSize(); }, 600);
@@ -795,7 +803,7 @@
 
     // 지도는 정확도와 상관없이 일단 띄운다 (첫 위치를 받으면 지도 표시).
     // 단, 거리·속도 계산은 정확도가 나쁜 좌표를 거른다.
-    if (!map) initMap(latitude, longitude);
+    try { if (!map) initMap(latitude, longitude); } catch (e) {}
 
     // GPS 정확도가 너무 나쁘면(신호 불량) 거리/속도 계산에서 제외.
     // 위치가 크게 튀어 정지 중에도 속도/거리가 부풀려지는 것을 방지.
@@ -948,7 +956,7 @@
 
     // 즉시 현재 위치를 한 번 받아 지도를 바로 띄움 (watchPosition이 늦을 때 대비)
     navigator.geolocation.getCurrentPosition(
-      (p) => { if (!map) initMap(p.coords.latitude, p.coords.longitude); onPos(p); },
+      (p) => { onPos(p); },
       () => {},
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
