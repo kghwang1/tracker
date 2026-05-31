@@ -357,7 +357,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 18:50</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:00</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -900,10 +900,13 @@
     }
 
     // 노이즈 필터를 통과한 점만 궤적에 추가 (정지 중 헛점 방지)
-    if (moved) addTrackPoint(latitude, longitude);
+    try {
+      if (moved) addTrackPoint(latitude, longitude);
+      else if (marker) marker.setLatLng([latitude, longitude]); // 정지 중에도 마커 위치는 갱신
+    } catch (e) { /* 지도 오류가 측정을 막지 않도록 */ }
 
     // 행정구역 경계 확인 (조건 만족 시에만 실제 조회)
-    checkRegion(latitude, longitude);
+    try { checkRegion(latitude, longitude); } catch (e) {}
 
     lastPos = { lat: latitude, lon: longitude, t: pos.timestamp };
   }
@@ -941,6 +944,13 @@
     if (elapsedBefore === 0 && distance === 0) {
       speak('라이딩을 시작합니다. 감사와 감동을 찾는 시간이 되길 바랍니다', 1);
     }
+
+    // 즉시 현재 위치를 한 번 받아 지도를 바로 띄움 (watchPosition이 늦을 때 대비)
+    navigator.geolocation.getCurrentPosition(
+      (p) => { if (!map) initMap(p.coords.latitude, p.coords.longitude); onPos(p); },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
 
     watchId = navigator.geolocation.watchPosition(onPos, onErr, {
       enableHighAccuracy: true,
