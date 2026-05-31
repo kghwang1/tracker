@@ -357,7 +357,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:00</em></div>
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:15</em></div>
     <div class="status">
       <span class="dot" id="dot"></span>
       <span id="statusText">대기 중</span>
@@ -814,16 +814,17 @@
     if (speed != null && speed >= 0) {
       kmh = speed * 3.6;
       if (kmh > 40) kmh = 0;   // 자전거로 불가능 → GPS 오류
-      if (kmh < 1.5) kmh = 0;  // 사실상 정지 → 미세 속도 제거
+      if (kmh < 1.0) kmh = 0;  // 사실상 정지 → 미세 속도 제거
     }
 
     let moved = false;
     if (lastPos) {
       const d = haversine(lastPos.lat, lastPos.lon, latitude, longitude);
       const dt = (pos.timestamp - lastPos.t) / 1000; // s
-      // 이동 인정 임계값: 정확도에 비례하되 최소 6m 이상 움직여야 인정.
-      // 정지 중 GPS가 수 m씩 흔들리는 것을 이동으로 오인하지 않도록 함.
-      const noiseFloor = Math.max(6, (accuracy || 0) * 1.0);
+      // 이동 인정 임계값: 정확도의 2배 또는 최소 4m. 정확도 좋을 때(±2m) 4m 이상
+      // 이동하면 인정 → 자전거 저속(약 7km/h↑, 2초 갱신 기준)은 잡고,
+      // 정지 중 2~3m 흔들림은 거른다.
+      const noiseFloor = Math.max(4, (accuracy || 0) * 2.0);
 
       // 좌표로 계산한 순간 속도
       const calcKmh = dt > 0 ? (d / dt) * 3.6 : 0;
@@ -836,7 +837,7 @@
 
       // 이동 거리가 임계값을 넘고, 순간 속도도 1.5km/h 이상일 때만 실제 이동으로 인정
       // (둘 다 만족해야 정지 중 미세 흔들림이 거리·속도에 안 잡힘)
-      if (d > noiseFloor && dt > 0 && calcKmh >= 1.5) {
+      if (d > noiseFloor && dt > 0 && calcKmh >= 1.0) {
         distance += d;
         moved = true;
         if (speed == null || speed < 0) kmh = calcKmh;
