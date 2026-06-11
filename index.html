@@ -1094,7 +1094,7 @@
         if (speed == null || speed < 0) kmh = calcKmh;
 
         // 진행 방향(heading) 갱신: 일정 속도 이상일 때만 (저속 떨림 방지)
-        if (headingMode && kmh >= 3) {
+        if (headingMode && kmh >= 2) {
           let h;
           if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
             h = pos.coords.heading; // GPS가 주는 방향 우선
@@ -1102,7 +1102,7 @@
             h = bearing(lastPos.lat, lastPos.lon, latitude, longitude);
           }
           // 부드럽게 회전 (급격한 떨림 완화)
-          curHeading = smoothHeading(curHeading, h, 0.4);
+          curHeading = smoothHeading(curHeading, h, 0.25);
         }
       } else {
         // 이동으로 인정 안 되면 정지로 간주 (헛속도 방지)
