@@ -486,14 +486,74 @@
 
   /* 모달은 시트보다 위 */
   .modal-bg { z-index: 2000; }
+
+  /* ============================================================
+     === 두 화면 전환 (전체화면 지도 뷰 ↔ 카드형 뷰) ===
+     ============================================================ */
+  body.view-full { overflow: hidden; }
+  body.view-card {
+    overflow-y: auto; overflow-x: hidden;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  body.view-full .screen-card { display: none; }
+  body.view-card .screen-full { display: none; }
+
+  /* 화면 전환 버튼 */
+  .view-switch {
+    flex: 0 0 auto; padding: 6px 11px; border-radius: 11px;
+    font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
+    letter-spacing: 0; line-height: 1;
+    background: rgba(19,26,32,0.62); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  /* 카드형 뷰: 스크롤 페이지 */
+  .screen-card .wrap { max-width: 480px; margin: 0 auto; padding: 16px 16px 110px; }
+  .controls-card { /* 기본 .controls 규칙(하단 고정) 사용 */ }
+
+  /* 카드형 뷰의 작은 지도 박스 */
+  .map-host-card {
+    position: relative; height: 32vh; max-height: 280px; min-height: 180px;
+    border-radius: 16px; overflow: hidden; background: var(--panel);
+    margin-bottom: 8px;
+  }
+  .map-host-card .map-wrap { position: absolute; inset: 0; z-index: 0; border-radius: 16px; height: auto; }
+  .map-host-card .map-empty { position: absolute; inset: 0; z-index: 1; border-radius: 16px; padding: 16px; }
+  .map-host-card #map { border-radius: 16px; }
+  /* 작은 지도에선 leaflet 컨트롤 위치 원위치 */
+  .map-host-card .leaflet-control-zoom { margin-top: 8px !important; margin-left: 8px !important; }
+  .map-host-card .leaflet-bottom.leaflet-right { bottom: 0 !important; }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <!-- 상단 바: 로고 · 상태 · 메뉴 -->
+<body class="view-full">
+
+<!-- ===================== 전체화면 지도 뷰 ===================== -->
+<div class="screen screen-full">
+  <div class="map-host-full" id="mapHostFull">
+    <div class="map-empty" id="mapEmpty">
+      <div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:8px;">📍 START를 누르면 이곳에 지도와 주행 궤적이 표시됩니다</div>
+        <div style="font-size:11px;line-height:1.6;">야외 트인 곳에서 GPS 정확도가 좋아지면(±40m 이하)<br>지도가 나타나고 측정이 시작됩니다.<br>실내·차 안에서는 신호가 약해 지도가 늦게 뜰 수 있습니다.</div>
+      </div>
+    </div>
+    <div class="map-wrap" id="mapWrap" style="display:none">
+      <div id="map"></div>
+      <div class="offline-banner" id="offlineBanner">
+        <span class="ico">⚠</span>
+        <span>인터넷 연결이 없어 지도는 표시되지 않습니다. 속도·거리 측정과 궤적 기록은 계속됩니다.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상단 바 -->
   <div class="topbar">
     <div class="logo">KG_RIDE<span>.</span><em class="ver">v2</em></div>
     <div class="top-right">
+      <button class="view-switch" onclick="switchView()">🃏 카드형</button>
       <div class="status">
         <span class="dot" id="dot"></span>
         <span id="statusText">대기 중</span>
@@ -502,7 +562,7 @@
     </div>
   </div>
 
-  <!-- 하단 정보 패널: 위치 · 속도/거리/시간/평균 · 버튼 -->
+  <!-- 하단 정보 패널 -->
   <div class="panel">
     <div class="loc-line">📍 <span id="region">—</span></div>
     <div class="mini-grid">
@@ -518,22 +578,57 @@
       <button class="btn-start" id="mainBtn" onclick="toggle()">START</button>
     </div>
   </div>
+</div>
 
-  <div class="map-empty" id="mapEmpty">
-    <div>
-      <div style="font-size:13px;color:var(--text);margin-bottom:8px;">📍 START를 누르면 이곳에 지도와 주행 궤적이 표시됩니다</div>
-      <div style="font-size:11px;line-height:1.6;">야외 트인 곳에서 GPS 정확도가 좋아지면(±40m 이하)<br>지도가 나타나고 측정이 시작됩니다.<br>실내·차 안에서는 신호가 약해 지도가 늦게 뜰 수 있습니다.</div>
+<!-- ===================== 카드형 뷰 ===================== -->
+<div class="screen screen-card">
+  <div class="wrap">
+    <header>
+      <div class="logo">KG_RIDE<span>.</span><em class="ver">v2</em></div>
+      <div class="top-right">
+        <button class="view-switch" onclick="switchView()">🗺️ 전체지도</button>
+        <div class="status">
+          <span class="dot" id="dot_c"></span>
+          <span id="statusText_c">대기 중</span>
+        </div>
+        <button class="menu-btn" onclick="openSheet()" aria-label="메뉴">☰</button>
+      </div>
+    </header>
+
+    <div class="speed-card">
+      <div class="speed-top">
+        <div class="speed-col">
+          <div class="speed-label">현재 속도</div>
+          <div><span class="speed-value" id="speed_c">0.0</span><span class="speed-unit">km/h</span></div>
+        </div>
+        <div class="speed-divider"></div>
+        <div class="speed-col">
+          <div class="speed-label">이동 거리</div>
+          <div><span class="speed-value" id="distance_c">0.00</span><span class="speed-unit">km</span></div>
+        </div>
+      </div>
+      <div class="accuracy" id="accuracy_c">GPS 정확도: —</div>
     </div>
-  </div>
-  <div class="map-wrap" id="mapWrap" style="display:none">
-    <div id="map"></div>
-    <div class="offline-banner" id="offlineBanner">
-      <span class="ico">⚠</span>
-      <span>인터넷 연결이 없어 지도는 표시되지 않습니다. 속도·거리 측정과 궤적 기록은 계속됩니다.</span>
+
+    <div class="grid2">
+      <div class="stat stat-row"><div class="rlabel">평균<br>속도</div><div class="rvalue"><span id="avg_c">0.0</span><i>km/h</i></div></div>
+      <div class="stat stat-row"><div class="rlabel">최고<br>속도</div><div class="rvalue"><span id="max_c">0.0</span><i>km/h</i></div></div>
+      <div class="stat stat-row"><div class="rlabel">경과<br>시간</div><div class="rvalue"><span id="time_c" style="font-family:'Space Mono',monospace">00:00</span></div></div>
+      <div class="stat stat-row"><div class="rlabel">현재<br>고도</div><div class="rvalue"><span id="alt_c">—</span><i>m</i></div></div>
     </div>
+
+    <div class="region-now">현재 위치: <span id="region_c">—</span></div>
+
+    <div class="map-host-card" id="mapHostCard"></div>
   </div>
 
-  <div class="note" id="note"></div>
+  <div class="controls controls-card">
+    <button class="btn-reset" id="resetBtn_c" onclick="finishRide()" disabled>완료</button>
+    <button class="btn-start" id="mainBtn_c" onclick="toggle()">START</button>
+  </div>
+</div>
+
+<div class="note" id="note"></div>
 
   <!-- 슬라이드 시트 (사용법/설정/주행기록) -->
   <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
@@ -590,7 +685,6 @@
     <div id="recordList"><div class="empty-records">아직 저장된 기록이 없습니다</div></div>
   </div>
   </div><!-- /sheet -->
-</div>
 
 <!-- 저장 확인 모달 -->
 <div class="modal-bg" id="saveModal">
@@ -1390,6 +1484,54 @@
     if (name === 'records') loadRecords();
   }
 
+  // ===== 두 화면 전환 (전체화면 지도 ↔ 카드형) =====
+  let currentView = 'full';
+
+  // 단일 지도(#map 포함 노드)를 활성 뷰의 슬롯으로 이동
+  function moveMapTo(host) {
+    if (!host) return;
+    const empty = $('mapEmpty'), wrap = $('mapWrap');
+    if (empty) host.appendChild(empty);
+    if (wrap) host.appendChild(wrap);
+    if (map) {
+      setTimeout(() => { try { map.invalidateSize(); if (followMode && lastPos) map.panTo([lastPos.lat, lastPos.lon]); } catch(e){} }, 60);
+      setTimeout(() => { try { map.invalidateSize(); } catch(e){} }, 350);
+    }
+  }
+
+  function applyView() {
+    document.body.classList.toggle('view-full', currentView === 'full');
+    document.body.classList.toggle('view-card', currentView === 'card');
+    moveMapTo(currentView === 'full' ? $('mapHostFull') : $('mapHostCard'));
+    mirrorUI();
+    if (currentView === 'card') window.scrollTo(0, 0);
+    applyMapRotation();
+  }
+
+  function switchView() {
+    currentView = (currentView === 'full') ? 'card' : 'full';
+    applyView();
+  }
+
+  // 측정값을 두 화면에 동일하게 반영 (full 뷰 요소 → card 뷰 요소 복사)
+  function mirrorUI() {
+    const fields = ['speed','distance','time','avg','max','alt','accuracy','region','statusText'];
+    for (const f of fields) {
+      const src = $(f), dst = $(f + '_c');
+      if (src && dst && dst.textContent !== src.textContent) dst.textContent = src.textContent;
+    }
+    const d = $('dot'), dc = $('dot_c');
+    if (d && dc && dc.className !== d.className) dc.className = d.className;
+    const m = $('mainBtn'), mc = $('mainBtn_c');
+    if (m && mc) {
+      if (mc.textContent !== m.textContent) mc.textContent = m.textContent;
+      if (mc.className !== m.className) mc.className = m.className;
+    }
+    const r = $('resetBtn'), rc = $('resetBtn_c');
+    if (r && rc && rc.disabled !== r.disabled) rc.disabled = r.disabled;
+  }
+  setInterval(mirrorUI, 180);
+
   // ===== 슬라이드 시트 열기/닫기 =====
   function openSheet() {
     $('sheetBg').classList.add('show');
@@ -1401,8 +1543,9 @@
     $('sheet').classList.remove('show');
   }
 
-  // 앱 시작 시 저장된 기록 로드
+  // 앱 시작 시 저장된 기록 로드 + 초기 화면 적용
   loadRecords();
+  applyView();
 </script>
 </body>
 </html>
