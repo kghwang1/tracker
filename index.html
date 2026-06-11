@@ -490,6 +490,14 @@
   /* 모달은 시트보다 위 */
   .modal-bg { z-index: 2000; }
 
+  /* 주행기록의 출발/유턴/도착 경로 줄 */
+  .rroute {
+    margin-top: 7px; font-size: 12.5px; line-height: 1.7;
+    color: var(--muted);
+    border-top: 1px solid rgba(255,255,255,0.07); padding-top: 7px;
+  }
+  .rroute b { color: var(--text); font-weight: 700; }
+
   /* ============================================================
      === 두 화면 전환 (전체화면 지도 뷰 ↔ 카드형 뷰) ===
      ============================================================ */
@@ -1359,10 +1367,58 @@
     }
   }
 
+  // 좌표 → 지명 (역지오코딩). 실패 시 null.
+  async function reverseGeocodeName(lat, lon) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&accept-language=ko`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const a = data.address || {};
+      const cityLevel = a.city || a.county || a.town || a.borough || a.municipality || null;
+      const townLevel = a.town || a.township || a.suburb || a.city_district || a.district || null;
+      const villageLevel = a.village || a.hamlet || a.neighbourhood || a.quarter || null;
+      const parts = [];
+      [cityLevel, townLevel, villageLevel].forEach(p => { if (p && !parts.includes(p)) parts.push(p); });
+      return parts.length ? parts.join(' ') : (a.province || null);
+    } catch (e) { return null; }
+  }
+
+  const _delay = ms => new Promise(r => setTimeout(r, ms));
+
+  // 저장 후 배경에서 출발/유턴/도착 지명을 채워 넣고 다시 렌더 (측정/저장을 막지 않음)
+  async function fillRidePlaces(recordId, startPt, turnPt, endPt) {
+    if (!navigator.onLine) return;
+    const upd = {};
+    try {
+      if (startPt) upd.startPlace = await reverseGeocodeName(startPt[0], startPt[1]);
+      if (turnPt)  { await _delay(1100); upd.turnPlace = await reverseGeocodeName(turnPt[0], turnPt[1]); }
+      if (endPt)   { await _delay(1100); upd.endPlace  = await reverseGeocodeName(endPt[0], endPt[1]); }
+    } catch (e) {}
+    const all = loadAllFromStore();
+    const rec = all.find(r => r.id === recordId);
+    if (rec) { Object.assign(rec, upd); saveAllToStore(all); await loadRecords(); }
+  }
+
   async function saveRide() {
     const s = currentSummary();
     const now = new Date();
     const dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+    // 출발·유턴(반환)·도착 지점 좌표 계산 (유턴지점 = 출발점에서 가장 멀리 간 지점)
+    const pts = trackPoints.slice();
+    let startPt = null, turnPt = null, endPt = null;
+    if (pts.length) {
+      startPt = pts[0];
+      endPt = pts[pts.length - 1];
+      let maxD = -1, idx = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const d = haversine(startPt[0], startPt[1], pts[i][0], pts[i][1]);
+        if (d > maxD) { maxD = d; idx = i; }
+      }
+      turnPt = pts[idx];
+    }
+
     const record = {
       id: 'ride_' + Date.now(),
       ts: now.getTime(),
@@ -1374,7 +1430,9 @@
       ascent: Math.round(s.ascent),
       descent: Math.round(s.descent),
       altProfile: altProfile,   // 고도 프로필
-      points: trackPoints   // 궤적 좌표도 함께 저장
+      points: pts,              // 궤적 좌표
+      startPt, turnPt, endPt,   // 출발/유턴/도착 좌표
+      startPlace: null, turnPlace: null, endPlace: null  // 지명(배경 조회 후 채움)
     };
     const all = loadAllFromStore();
     all.push(record);
@@ -1385,6 +1443,8 @@
     $('saveModal').classList.remove('show');
     reset();
     await loadRecords();
+    // 지명은 배경에서 천천히 채움 (저장/화면을 막지 않음)
+    fillRidePlaces(record.id, startPt, turnPt, endPt);
   }
 
   // 저장된 모든 기록 불러와 날짜별로 렌더링
@@ -1431,13 +1491,18 @@
         const mm = String(t.getMinutes()).padStart(2,'0');
         const hasAlt = r.altProfile && r.altProfile.length > 1;
         const ascDesc = (r.ascent != null)
-          ? ` &nbsp; ↑${r.ascent} <span>m</span> ↓${r.descent||0} <span>m</span>`
+          ? ` &nbsp; 누적고도 ↑${r.ascent} <span>m</span> ↓${r.descent||0} <span>m</span>`
+          : '';
+        const placeOf = (name, pt) => name ? name : (pt ? `${pt[0].toFixed(3)}, ${pt[1].toFixed(3)}` : '—');
+        const routeLine = (r.startPt || r.startPlace)
+          ? `<div class="rroute">🚩 출발 <b>${placeOf(r.startPlace, r.startPt)}</b><br>🔄 유턴 <b>${placeOf(r.turnPlace, r.turnPt)}</b><br>🏁 도착 <b>${placeOf(r.endPlace, r.endPt)}</b></div>`
           : '';
         html += `
           <div class="record">
             <div class="rmain" ${hasAlt ? `onclick="toggleProfile('${r.id}')" style="cursor:pointer"` : ''}>
               <div class="rtime">${hh}:${mm} 출발 · ${fmtTime(r.durationMs)}${hasAlt ? ' · 탭하면 고도 그래프 ▾' : ''}</div>
               <div class="rstats">${r.distance.toFixed(2)} <span>km</span> &nbsp; 평균 ${r.avg.toFixed(1)} <span>km/h</span>${ascDesc}</div>
+              ${routeLine}
               <div class="profile" id="prof_${r.id}" style="display:none"></div>
             </div>
             <button class="rdel" onclick="deleteRecord('${r.id}')">×</button>
