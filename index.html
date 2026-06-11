@@ -352,59 +352,171 @@
   .modal-btns button { padding: 15px 0; font-size: 15px; }
   .btn-discard { background: var(--bg); color: var(--muted); border: 1px solid rgba(255,255,255,0.1); }
   .btn-save { background: var(--accent); color: #0a0e12; }
+
+  /* ============================================================
+     === V2 — 전체화면 지도 + 하단 컴팩트 정보 패널 (오버라이드) ===
+     ============================================================ */
+  html, body { height: 100%; }
+  body { overflow: hidden; background: var(--bg); background-image: none; }
+  .wrap { max-width: none; margin: 0; padding: 0; }
+  .note { display: none !important; }
+
+  /* 지도: 화면 전체 */
+  .map-wrap {
+    position: fixed; inset: 0; z-index: 0;
+    margin: 0; border-radius: 0;
+    height: auto; max-height: none; min-height: 0;
+  }
+  .map-empty {
+    position: fixed; inset: 0; z-index: 1;
+    margin: 0; border-radius: 0; border: none;
+    height: auto; max-height: none; min-height: 0; padding: 24px;
+  }
+  /* leaflet 컨트롤이 상단바/하단패널에 가리지 않도록 위치 조정 */
+  .leaflet-control-zoom { margin-top: 66px !important; margin-left: 12px !important; }
+  .leaflet-bottom.leaflet-right { bottom: 215px !important; }
+  .offline-banner { top: 64px; }
+
+  /* 상단 바 (플로팅) */
+  .topbar {
+    position: fixed; top: calc(8px + env(safe-area-inset-top));
+    left: 50%; transform: translateX(-50%);
+    width: calc(100% - 20px); max-width: 500px; z-index: 600;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 8px 12px 8px 14px;
+    background: rgba(19,26,32,0.82);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+  }
+  .topbar .logo { font-size: 18px; }
+  .topbar .logo .ver { font-size: 11px; margin-left: 5px; }
+  .top-right { display: flex; align-items: center; gap: 12px; }
+  .menu-btn {
+    flex: 0 0 auto; width: 38px; height: 34px; padding: 0;
+    border-radius: 11px; font-size: 17px; line-height: 1;
+    background: var(--panel); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* 하단 정보 패널 (플로팅 카드) */
+  .panel {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: 10px; width: calc(100% - 20px); max-width: 500px; z-index: 600;
+    background: rgba(19,26,32,0.92);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.09); border-radius: 20px;
+    padding: 11px 13px calc(11px + env(safe-area-inset-bottom));
+    box-shadow: 0 10px 34px rgba(0,0,0,0.45);
+  }
+  .loc-line {
+    font-family: 'Space Mono', monospace; font-size: 12px;
+    color: var(--text); text-align: center; margin-bottom: 9px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .loc-line span { color: var(--accent); font-weight: 700; }
+  .mini-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 6px; margin-bottom: 8px;
+  }
+  .mini {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 11px; padding: 7px 2px 6px; text-align: center;
+  }
+  .mlabel {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 3px;
+  }
+  .mval {
+    font-size: 19px; font-weight: 800; letter-spacing: -0.5px;
+    line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .mval i {
+    font-style: normal; font-size: 9px; font-weight: 600;
+    color: var(--accent-dim); display: block; margin-top: 2px;
+  }
+  #speed { color: var(--accent); }
+  #time { font-family: 'Space Mono', monospace; font-size: 16px; }
+  .mini-sub {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    color: var(--muted); text-align: center; margin-bottom: 3px;
+  }
+  .mini-sub b { color: var(--text); font-weight: 700; }
+  .acc-line {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    color: var(--muted); text-align: center; margin-bottom: 9px;
+  }
+  /* 패널 안의 버튼 */
+  .panel .controls {
+    position: static; transform: none; display: flex; gap: 8px;
+    padding: 0; margin: 0; max-width: none; background: none;
+  }
+  .panel .controls button { padding: 13px 0; font-size: 15px; border-radius: 13px; }
+
+  /* 토스트는 패널 위쪽에 */
+  .toast { bottom: 228px; }
+
+  /* 슬라이드 시트 (사용법/설정/주행기록) */
+  .sheet-bg {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(5,8,11,0.55);
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+    display: none;
+  }
+  .sheet-bg.show { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1001;
+    max-width: 500px; margin: 0 auto;
+    background: var(--bg); border: 1px solid rgba(255,255,255,0.1);
+    border-bottom: none; border-radius: 22px 22px 0 0;
+    padding: 8px 18px calc(22px + env(safe-area-inset-bottom));
+    max-height: 84vh; overflow-y: auto;
+    transform: translateY(105%); transition: transform .28s ease;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet-handle {
+    width: 44px; height: 5px; border-radius: 3px;
+    background: rgba(255,255,255,0.22); margin: 6px auto 14px; cursor: pointer;
+  }
+  .sheet .tabs { margin-top: 0; }
+
+  /* 모달은 시트보다 위 */
+  .modal-bg { z-index: 2000; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="logo">KG_RIDE<span>.</span><em class="ver">v 05.30 19:50</em></div>
-    <div class="status">
-      <span class="dot" id="dot"></span>
-      <span id="statusText">대기 중</span>
-    </div>
-  </header>
-
-  <div class="speed-card">
-    <div class="speed-top">
-      <div class="speed-col">
-        <div class="speed-label">현재 속도</div>
-        <div>
-          <span class="speed-value" id="speed">0.0</span>
-          <span class="speed-unit">km/h</span>
-        </div>
+  <!-- 상단 바: 로고 · 상태 · 메뉴 -->
+  <div class="topbar">
+    <div class="logo">KG_RIDE<span>.</span><em class="ver">v2</em></div>
+    <div class="top-right">
+      <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="statusText">대기 중</span>
       </div>
-      <div class="speed-divider"></div>
-      <div class="speed-col">
-        <div class="speed-label">이동 거리</div>
-        <div>
-          <span class="speed-value" id="distance">0.00</span>
-          <span class="speed-unit">km</span>
-        </div>
-      </div>
-    </div>
-    <div class="accuracy" id="accuracy">GPS 정확도: —</div>
-  </div>
-
-  <div class="grid2">
-    <div class="stat stat-row">
-      <div class="rlabel">평균<br>속도</div>
-      <div class="rvalue"><span id="avg">0.0</span><i>km/h</i></div>
-    </div>
-    <div class="stat stat-row">
-      <div class="rlabel">최고<br>속도</div>
-      <div class="rvalue"><span id="max">0.0</span><i>km/h</i></div>
-    </div>
-    <div class="stat stat-row">
-      <div class="rlabel">경과<br>시간</div>
-      <div class="rvalue"><span id="time" style="font-family:'Space Mono',monospace">00:00</span></div>
-    </div>
-    <div class="stat stat-row">
-      <div class="rlabel">현재<br>고도</div>
-      <div class="rvalue"><span id="alt">—</span><i>m</i></div>
+      <button class="menu-btn" onclick="openSheet()" aria-label="메뉴">☰</button>
     </div>
   </div>
 
-  <div class="region-now">현재 위치: <span id="region">—</span></div>
+  <!-- 하단 정보 패널: 위치 · 속도/거리/시간/평균 · 버튼 -->
+  <div class="panel">
+    <div class="loc-line">📍 <span id="region">—</span></div>
+    <div class="mini-grid">
+      <div class="mini"><div class="mlabel">속도</div><div class="mval"><span id="speed">0.0</span><i>km/h</i></div></div>
+      <div class="mini"><div class="mlabel">거리</div><div class="mval"><span id="distance">0.00</span><i>km</i></div></div>
+      <div class="mini"><div class="mlabel">시간</div><div class="mval"><span id="time">00:00</span></div></div>
+      <div class="mini"><div class="mlabel">평균</div><div class="mval"><span id="avg">0.0</span><i>km/h</i></div></div>
+    </div>
+    <div class="mini-sub" style="display:none">최고 <b id="max">0.0</b> km/h · 고도 <b id="alt">—</b> m</div>
+    <div class="acc-line" id="accuracy">GPS 정확도: —</div>
+    <div class="controls">
+      <button class="btn-reset" id="resetBtn" onclick="finishRide()" disabled>완료</button>
+      <button class="btn-start" id="mainBtn" onclick="toggle()">START</button>
+    </div>
+  </div>
 
   <div class="map-empty" id="mapEmpty">
     <div>
@@ -421,6 +533,11 @@
   </div>
 
   <div class="note" id="note"></div>
+
+  <!-- 슬라이드 시트 (사용법/설정/주행기록) -->
+  <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet">
+  <div class="sheet-handle" onclick="closeSheet()"></div>
 
   <!-- 탭 버튼 -->
   <div class="tabs">
@@ -471,6 +588,7 @@
     </div>
     <div id="recordList"><div class="empty-records">아직 저장된 기록이 없습니다</div></div>
   </div>
+  </div><!-- /sheet -->
 </div>
 
 <!-- 저장 확인 모달 -->
@@ -494,11 +612,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
-<div class="controls">
-  <button class="btn-reset" id="resetBtn" onclick="finishRide()" disabled>완료</button>
-  <button class="btn-start" id="mainBtn" onclick="toggle()">START</button>
-</div>
 
 <script>
   let watchId = null;
@@ -922,11 +1035,32 @@
     lastPos = { lat: latitude, lon: longitude, t: pos.timestamp };
   }
 
+  // 지도 영역(빈 화면)에 안내/오류 메시지 표시
+  function showMapMessage(html) {
+    const me = $('mapEmpty');
+    if (!me) return;
+    me.innerHTML = '<div style="max-width:340px;line-height:1.6">' + html + '</div>';
+    if (!map) me.style.display = 'flex';
+  }
+
   function onErr(err) {
     $('dot').className = 'dot error';
     $('statusText').textContent = '오류';
-    $('note').innerHTML = '위치를 가져올 수 없습니다: ' + err.message +
-      '<br>브라우저 설정에서 위치 권한을 허용해 주세요.';
+    let msg;
+    if (!window.isSecureContext) {
+      msg = '⚠ <b>보안 연결(HTTPS)이 아니어서 GPS를 쓸 수 없습니다.</b><br><br>'
+          + '다운로드한 파일을 직접 여는 대신, <b>https 주소</b>(예: GitHub Pages)에 올린 뒤 그 주소로 여세요.<br>'
+          + '<span style="color:#5a6b74;font-size:11px">현재 주소가 content:// 또는 file:// 이면 위치가 차단됩니다.</span>';
+    } else if (err && err.code === 1) {
+      msg = '위치 권한이 거부되었습니다.<br>브라우저 설정에서 이 사이트의 <b>위치 권한을 "허용"</b>으로 바꾼 뒤 다시 START를 누르세요.';
+    } else if (err && err.code === 2) {
+      msg = '위치를 확인할 수 없습니다.<br>휴대폰의 <b>위치(GPS) 기능이 켜져 있는지</b> 확인하고, 야외 트인 곳에서 다시 시도하세요.';
+    } else if (err && err.code === 3) {
+      msg = '위치 확인 시간이 초과됐습니다.<br>신호가 약합니다. 야외에서 잠시 기다리면 잡힙니다.';
+    } else {
+      msg = '위치를 가져올 수 없습니다' + (err && err.message ? ': ' + err.message : '') + '.';
+    }
+    showMapMessage(msg);
   }
 
   function toggle() {
@@ -950,6 +1084,11 @@
     $('note').innerHTML = '이동 중입니다. 측정 중에는 화면이 자동으로 꺼지지 않습니다.';
     updateOnlineStatus();
     requestWakeLock();
+
+    // 비보안 출처(content:// 또는 file://)면 GPS가 차단되므로 미리 안내
+    if (!window.isSecureContext) {
+      onErr({ code: 0, message: 'insecure context' });
+    }
 
     // 최초 시작일 때만 시작 멘트 (RESUME 시에는 생략)
     if (elapsedBefore === 0 && distance === 0) {
@@ -1248,6 +1387,17 @@
     activeTab = name;
     // 주행 기록 탭이면 최신 기록 다시 로드
     if (name === 'records') loadRecords();
+  }
+
+  // ===== 슬라이드 시트 열기/닫기 =====
+  function openSheet() {
+    $('sheetBg').classList.add('show');
+    $('sheet').classList.add('show');
+    if (!activeTab) openTab('guide');
+  }
+  function closeSheet() {
+    $('sheetBg').classList.remove('show');
+    $('sheet').classList.remove('show');
   }
 
   // 앱 시작 시 저장된 기록 로드
