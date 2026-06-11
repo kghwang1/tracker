@@ -384,30 +384,26 @@
     width: calc(100% - 20px); max-width: 500px; z-index: 600;
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; padding: 8px 12px 8px 14px;
-    background: rgba(19,26,32,0.82);
-    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
-    box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+    background: transparent; border: none; box-shadow: none;
   }
   .topbar .logo { font-size: 18px; }
+  .topbar .status { font-size: 12px; color: #c2ccd1; }
   .topbar .logo .ver { font-size: 11px; margin-left: 5px; }
   .top-right { display: flex; align-items: center; gap: 12px; }
   .menu-btn {
     flex: 0 0 auto; width: 38px; height: 34px; padding: 0;
     border-radius: 11px; font-size: 17px; line-height: 1;
-    background: var(--panel); color: var(--text);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(19,26,32,0.62); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
 
   /* 하단 정보 패널 (플로팅 카드) */
   .panel {
     position: fixed; left: 50%; transform: translateX(-50%);
     bottom: 10px; width: calc(100% - 20px); max-width: 500px; z-index: 600;
-    background: rgba(19,26,32,0.92);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255,255,255,0.09); border-radius: 20px;
+    background: transparent; border: none; box-shadow: none;
     padding: 11px 13px calc(11px + env(safe-area-inset-bottom));
-    box-shadow: 0 10px 34px rgba(0,0,0,0.45);
   }
   .loc-line {
     font-family: 'Space Mono', monospace; font-size: 12px;
@@ -420,8 +416,7 @@
     gap: 6px; margin-bottom: 8px;
   }
   .mini {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.05);
+    background: transparent; border: none;
     border-radius: 11px; padding: 7px 2px 6px; text-align: center;
   }
   .mlabel {
@@ -445,9 +440,15 @@
   }
   .mini-sub b { color: var(--text); font-weight: 700; }
   .acc-line {
-    font-family: 'Space Mono', monospace; font-size: 9px;
-    color: var(--muted); text-align: center; margin-bottom: 9px;
+    font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+    color: #c2ccd1; text-align: center; margin-bottom: 9px;
   }
+  /* 투명 배경(지도) 위에서도 잘 보이도록 글자 그림자 */
+  .loc-line, .mlabel, .mval, .acc-line,
+  .topbar .logo, .topbar .status {
+    text-shadow: 0 1px 4px rgba(0,0,0,0.92), 0 0 2px rgba(0,0,0,0.85);
+  }
+  .mlabel { color: #aeb8bd; }
   /* 패널 안의 버튼 */
   .panel .controls {
     position: static; transform: none; display: flex; gap: 8px;
@@ -576,7 +577,7 @@
   <div class="tab-panel" id="tabSettings" style="display:none">
     <button id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">🔊 음성 알림 켜짐</button>
     <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
-    <button id="headingBtn" class="voice-toggle off" onclick="toggleHeading()">🧭 지도: 북쪽 위</button>
+    <button id="headingBtn" class="voice-toggle" onclick="toggleHeading()">🧭 지도: 진행 방향 위</button>
     <p class="g-hint">각 버튼을 눌러 켜고 끌 수 있습니다. 지도 버튼은 북쪽 고정 ↔ 진행 방향 위를 전환합니다.</p>
   </div>
 
@@ -648,7 +649,7 @@
   let trackPoints = [];    // [lat, lon] array
   let followMode = true;   // auto-recenter on rider
   let curHeading = 0;      // 현재 진행 방향(도). 지도 회전에 사용
-  let headingMode = false; // true=진행방향 위, false=북쪽 위(기본)
+  let headingMode = true; // true=진행방향 위(기본), false=북쪽 위
   let wakeLock = null;     // 화면 꺼짐 방지 핸들
   let allRecords = [];     // 로드된 전체 기록 (그래프 토글용)
 
