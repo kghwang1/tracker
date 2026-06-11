@@ -254,7 +254,8 @@
   #map.heading-rotate {
     inset: auto;
     top: 50%; left: 50%;
-    width: 142%; height: 142%;
+    /* 회전해도 화면 모서리가 비지 않도록 화면 대각선보다 큰 정사각형으로 */
+    width: 140vmax; height: 140vmax;
     transform: translate(-50%, -50%) rotate(0deg);
     transform-origin: center center;
     transition: transform 0.5s ease-out;
@@ -526,6 +527,8 @@
   .map-host-card .map-wrap { position: absolute; inset: 0; z-index: 0; border-radius: 16px; height: auto; }
   .map-host-card .map-empty { position: absolute; inset: 0; z-index: 1; border-radius: 16px; padding: 16px; }
   .map-host-card #map { border-radius: 16px; }
+  /* 카드형 작은 지도: 회전 시 박스를 덮도록 (vmax 대신 박스 기준) */
+  .map-host-card #map.heading-rotate { width: 220%; height: 220%; }
   /* 작은 지도에선 leaflet 컨트롤 위치 원위치 */
   .map-host-card .leaflet-control-zoom { margin-top: 8px !important; margin-left: 8px !important; }
   .map-host-card .leaflet-bottom.leaflet-right { bottom: 0 !important; }
