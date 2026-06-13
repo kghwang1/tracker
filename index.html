@@ -415,28 +415,29 @@
   }
   .loc-line span { color: var(--accent); font-weight: 700; }
   .mini-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 6px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 8px; margin-bottom: 8px;
   }
+  .mini-col { display: flex; flex-direction: column; gap: 12px; }
   .mini {
     background: transparent; border: none;
     border-radius: 11px; padding: 7px 2px 6px; text-align: center;
   }
   .mlabel {
-    font-family: 'Space Mono', monospace; font-size: 18px;
+    font-family: 'Space Mono', monospace; font-size: 20px;
     letter-spacing: 1px; text-transform: uppercase;
     color: var(--muted); margin-bottom: 3px;
   }
   .mval {
-    font-size: 25px; font-weight: 800; letter-spacing: -0.5px;
+    font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
     line-height: 1; font-variant-numeric: tabular-nums;
   }
   .mval i {
-    font-style: normal; font-size: 14px; font-weight: 600;
+    font-style: normal; font-size: 15px; font-weight: 600;
     color: var(--accent-dim); display: block; margin-top: 2px;
   }
   #speed { color: var(--accent); }
-  #time { font-family: 'Space Mono', monospace; font-size: 21px; }
+  #time { font-family: 'Space Mono', monospace; font-size: 23px; }
   .mini-sub {
     font-family: 'Space Mono', monospace; font-size: 10px;
     color: var(--muted); text-align: center; margin-bottom: 3px;
@@ -601,10 +602,14 @@
   <div class="panel">
     <div class="loc-line">📍 <span id="region">—</span></div>
     <div class="mini-grid">
-      <div class="mini"><div class="mlabel">속도</div><div class="mval"><span id="speed">0.0</span><i>km/h</i></div></div>
-      <div class="mini"><div class="mlabel">거리</div><div class="mval"><span id="distance">0.00</span><i>km</i></div></div>
-      <div class="mini"><div class="mlabel">시간</div><div class="mval"><span id="time">00:00</span></div></div>
-      <div class="mini"><div class="mlabel">평균</div><div class="mval"><span id="avg">0.0</span><i>km/h</i></div></div>
+      <div class="mini-col mini-left">
+        <div class="mini"><div class="mlabel">속도</div><div class="mval"><span id="speed">0.0</span><i>km/h</i></div></div>
+        <div class="mini"><div class="mlabel">평균</div><div class="mval"><span id="avg">0.0</span><i>km/h</i></div></div>
+      </div>
+      <div class="mini-col mini-right">
+        <div class="mini"><div class="mlabel">거리</div><div class="mval"><span id="distance">0.00</span><i>km</i></div></div>
+        <div class="mini"><div class="mlabel">시간</div><div class="mval"><span id="time">00:00</span></div></div>
+      </div>
     </div>
     <div class="mini-sub" style="display:none">최고 <b id="max">0.0</b> km/h · 고도 <b id="alt">—</b> m</div>
     <div class="acc-line" id="accuracy">GPS 정확도: —</div>
@@ -1130,9 +1135,13 @@
       moved = true;
     }
 
-    // 측정 중 상태 라벨 복구
-    if (running && $('statusText').textContent === 'GPS 약함') {
-      $('statusText').textContent = navigator.onLine ? '측정 중' : '측정 중 (오프라인)';
+    // 측정 중 상태 라벨 복구 (일시적 오류/약신호에서 정상 위치가 들어오면 회복)
+    if (running) {
+      const st = $('statusText').textContent;
+      if (st === 'GPS 약함' || st === '오류' || st === '대기 중') {
+        $('dot').className = 'dot live';
+        $('statusText').textContent = navigator.onLine ? '측정 중' : '측정 중 (오프라인)';
+      }
     }
 
     if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
