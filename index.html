@@ -410,15 +410,26 @@
   }
   .loc-line {
     font-family: 'Space Mono', monospace; font-size: 12px;
-    color: var(--text); text-align: center; margin-bottom: 9px;
+    color: var(--text); text-align: center; margin: 0 auto 9px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    width: fit-content; max-width: 100%;
+    background: rgba(8,11,15,0.52); border-radius: 12px; padding: 5px 14px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    box-shadow: 0 3px 14px rgba(0,0,0,0.5);
   }
   .loc-line span { color: var(--accent); font-weight: 700; }
   .mini-grid {
     display: flex; justify-content: space-between; align-items: flex-start;
     gap: 8px; margin-bottom: 8px;
   }
-  .mini-col { display: flex; flex-direction: column; gap: 12px; }
+  .mini-col {
+    display: flex; flex-direction: column; gap: 12px;
+    background: rgba(8,11,15,0.52);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px; padding: 8px 14px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    box-shadow: 0 3px 16px rgba(0,0,0,0.55);
+  }
   .mini {
     background: transparent; border: none;
     border-radius: 11px; padding: 7px 2px 6px; text-align: center;
@@ -445,7 +456,11 @@
   .mini-sub b { color: var(--text); font-weight: 700; }
   .acc-line {
     font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700;
-    color: #c2ccd1; text-align: center; margin-bottom: 9px;
+    color: #c2ccd1; text-align: center; margin: 0 auto 9px;
+    width: fit-content; max-width: 100%;
+    background: rgba(8,11,15,0.52); border-radius: 11px; padding: 4px 13px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    box-shadow: 0 3px 14px rgba(0,0,0,0.5);
   }
   /* 투명 배경(지도) 위에서도 잘 보이도록 글자 그림자 */
   .loc-line, .mlabel, .mval, .acc-line,
