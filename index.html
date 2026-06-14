@@ -408,10 +408,18 @@
     background: transparent; border: none; box-shadow: none;
     padding: 11px 6px calc(11px + env(safe-area-inset-bottom));
   }
-  .loc-line {
-    font-family: 'Space Mono', monospace; font-size: 13px;
-    color: var(--text); text-align: center; margin-bottom: 9px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .loc-line { display: none; }
+
+  /* 내 위치 원 아래에 따라다니는 주소 (화면 중앙 기준, 똑바로 선 채로) */
+  .loc-label-map {
+    position: fixed; left: 50%; top: 50%;
+    transform: translate(-50%, 0.5cm);
+    z-index: 500; pointer-events: none;
+    font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--accent); white-space: nowrap; text-align: center;
+    text-shadow:
+      0 0 4px rgba(0,0,0,1), 0 0 9px rgba(0,0,0,1),
+      0 0 16px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,1);
   }
   .loc-line span { color: var(--accent); font-weight: 700; }
   .mini-grid {
@@ -458,7 +466,7 @@
   .mlabel { color: var(--accent); }
 
   /* 박스 없이 숫자·라벨 주변에만 넓고 진한 그림자(후광)로 가독성 확보 */
-  .mlabel, .mval, .mval i, #time, .loc-line, .acc-line {
+  .mlabel, .mval, .mval i, #time, .loc-label-map {
     text-shadow:
       0 0 4px rgba(0,0,0,1),
       0 0 9px rgba(0,0,0,1),
@@ -466,6 +474,8 @@
       0 0 24px rgba(0,0,0,0.95),
       0 1px 3px rgba(0,0,0,1);
   }
+  /* GPS 정확도 글자: 음영(그림자) 제거 */
+  .acc-line { text-shadow: none; }
   /* 패널 안의 버튼 */
   .panel .controls {
     position: static; transform: none; display: flex; gap: 8px;
@@ -606,6 +616,9 @@
       <text x="50" y="12" text-anchor="middle" font-size="14" font-weight="700" fill="#ff8a84" font-family="monospace">N</text>
     </svg>
   </div>
+
+  <!-- 내 위치(중앙 원) 0.5cm 아래 따라다니는 주소 라벨 -->
+  <div class="loc-label-map" id="locLabel" aria-hidden="true"></div>
 
   <!-- 상단 바 -->
   <div class="topbar">
@@ -921,6 +934,7 @@
 
       if (fullAddr) {
         $('region').textContent = fullAddr;
+        if ($('locLabel')) $('locLabel').textContent = fullAddr;
         // 주소가 바뀌면 그 주소로 진입 알림 (읍·면·동/마을이 바뀔 때마다)
         if (fullAddr !== currentRegion) {
           // 첫 조회 때는 기준만 설정하고 알리지 않음
@@ -1329,6 +1343,7 @@
     // 경계 알림 초기화
     currentRegion = null; lastGeoCheck = 0; lastGeoPos = null;
     if ($('region')) $('region').textContent = '—';
+    if ($('locLabel')) $('locLabel').textContent = '';
     $('mapWrap').style.display = 'none';
     $('mapEmpty').style.display = 'flex';
     $('speed').textContent = '0.0';
