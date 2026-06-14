@@ -463,9 +463,18 @@
   /* 패널 안의 버튼 */
   .panel .controls {
     position: static; transform: none; display: flex; gap: 8px;
+    align-items: center;
     padding: 0; margin: 0; max-width: none; background: none;
   }
   .panel .controls button { padding: 13px 0; font-size: 15px; border-radius: 13px; }
+  /* 앱 링크 QR (START 우측) */
+  .qr-box {
+    flex: 0 0 auto; width: 68px; height: 68px;
+    border-radius: 13px; overflow: hidden; background: #fff; padding: 5px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.45); text-decoration: none;
+  }
+  .qr-box img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 
   /* 토스트는 패널 위쪽에 */
   .toast { bottom: 228px; }
@@ -624,6 +633,9 @@
     <div class="controls">
       <button class="btn-reset" id="resetBtn" onclick="finishRide()" disabled>완료</button>
       <button class="btn-start" id="mainBtn" onclick="toggle()">START</button>
+      <a class="qr-box" id="qrBox" href="#" onclick="shareLink(event)" title="앱 링크 QR · 탭하면 주소 복사">
+        <img id="qrImg" alt="앱 QR">
+      </a>
     </div>
   </div>
 </div>
@@ -1656,6 +1668,28 @@
   }
   setInterval(mirrorUI, 180);
 
+  // ===== 앱 링크 QR =====
+  function appShareUrl() {
+    return /^https?:/.test(location.protocol) ? (location.origin + location.pathname) : location.href;
+  }
+  function initQR() {
+    const img = document.getElementById('qrImg');
+    if (!img) return;
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=' + encodeURIComponent(appShareUrl());
+    img.onerror = () => { const b = document.getElementById('qrBox'); if (b) b.style.display = 'none'; };
+  }
+  function shareLink(e) {
+    if (e) e.preventDefault();
+    const url = appShareUrl();
+    if (navigator.share) {
+      navigator.share({ title: 'KG_RIDE', url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => showToast('앱 링크가 복사되었습니다')).catch(() => showToast(url));
+    } else {
+      showToast(url);
+    }
+  }
+
   // ===== 슬라이드 시트 열기/닫기 =====
   function openSheet() {
     $('sheetBg').classList.add('show');
@@ -1670,6 +1704,7 @@
   // 앱 시작 시 저장된 기록 로드 + 초기 화면 적용
   loadRecords();
   applyView();
+  initQR();
 </script>
 </body>
 </html>
