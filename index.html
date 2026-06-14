@@ -419,12 +419,17 @@
     gap: 8px; margin-bottom: 8px;
   }
   .mini-col {
+    position: relative; z-index: 0;
     display: flex; flex-direction: column; gap: 12px;
-    background: rgba(8,11,15,0.32);
-    border: none;
-    border-radius: 16px; padding: 8px 14px;
-    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
-    box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+    background: transparent; border: none; box-shadow: none;
+    border-radius: 16px; padding: 10px 16px;
+  }
+  /* 가장자리를 부드럽게 페이드: 흐린 음영을 뒤에 깔아 지도로 스며들게 */
+  .mini-col::before {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: rgba(8,11,15,0.42);
+    border-radius: 20px;
+    filter: blur(10px);
   }
   .mini {
     background: transparent; border: none;
@@ -595,8 +600,8 @@
   <!-- 북쪽 지시 나침반 (전체화면 뷰) -->
   <div class="compass" id="compass" aria-hidden="true">
     <svg id="compassDial" viewBox="0 0 100 100" width="50" height="50">
-      <polygon points="50,14 41,53 59,53" fill="#ff5e57"></polygon>
-      <polygon points="50,90 41,53 59,53" fill="#8a99a3"></polygon>
+      <polygon points="50,14 32,53 68,53" fill="#ff5e57"></polygon>
+      <polygon points="50,90 32,53 68,53" fill="#8a99a3"></polygon>
       <circle cx="50" cy="53" r="4.5" fill="#0a0e12" stroke="#ffffff" stroke-width="1.5"></circle>
       <text x="50" y="12" text-anchor="middle" font-size="14" font-weight="700" fill="#ff8a84" font-family="monospace">N</text>
     </svg>
