@@ -653,6 +653,7 @@
     <div class="logo">KG_RIDE<span>.</span><em class="ver">v2</em></div>
     <div class="top-right">
       <button class="view-switch" onclick="switchView()">🃏 카드형</button>
+      <span id="bleIndicator" style="display:none;font-size:11px;color:var(--accent);background:rgba(212,255,63,0.12);border:1px solid var(--accent);border-radius:10px;padding:2px 7px;white-space:nowrap;">🔵 BLE</span>
       <div class="status">
         <span class="dot" id="dot"></span>
         <span id="statusText">대기 중</span>
@@ -693,6 +694,7 @@
       <div class="logo">KG_RIDE<span>.</span><em class="ver">v2</em></div>
       <div class="top-right">
         <button class="view-switch" onclick="switchView()">🗺️ 전체지도</button>
+        <span id="bleIndicator_c" style="display:none;font-size:11px;color:var(--accent);background:rgba(212,255,63,0.12);border:1px solid var(--accent);border-radius:10px;padding:2px 7px;white-space:nowrap;">🔵 BLE</span>
         <div class="status">
           <span class="dot" id="dot_c"></span>
           <span id="statusText_c">대기 중</span>
@@ -780,6 +782,42 @@
     <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
     <button id="headingBtn" class="voice-toggle" onclick="toggleHeading()">🧭 지도: 진행 방향 위</button>
     <p class="g-hint">각 버튼을 눌러 켜고 끌 수 있습니다. 지도 버튼은 북쪽 고정 ↔ 진행 방향 위를 전환합니다.</p>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">🔵 외부 속도 센서 (Bluetooth)</p>
+      <button id="bleBtn" class="voice-toggle" onclick="toggleBle()" style="width:100%;justify-content:center;">📡 BLE 센서 연결</button>
+      <div id="bleStatus" style="font-size:12px;color:var(--muted);margin-top:8px;min-height:18px;"></div>
+      <div style="margin-top:12px;">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">바퀴 사이즈</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button id="wBtn24" onclick="selectInch(24)"
+            style="flex:1;padding:8px 0;background:var(--panel);color:var(--text);border:1px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.4;">
+            <div style="font-size:15px;font-weight:700;">24"</div>
+            <div style="font-size:10px;color:var(--muted);">507mm</div>
+          </button>
+          <button id="wBtn26" onclick="selectInch(26)"
+            style="flex:1;padding:8px 0;background:var(--panel);color:var(--text);border:1px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.4;">
+            <div style="font-size:15px;font-weight:700;">26"</div>
+            <div style="font-size:10px;color:var(--muted);">559mm</div>
+          </button>
+          <button id="wBtn29" onclick="selectInch(29)"
+            style="flex:1;padding:8px 0;background:var(--accent);color:#000;border:1px solid var(--accent);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.4;">
+            <div style="font-size:15px;font-weight:700;">29"</div>
+            <div style="font-size:10px;">700×45</div>
+          </button>
+          <button id="wBtnCustom" onclick="selectInch('custom')"
+            style="flex:1;padding:8px 0;background:var(--panel);color:var(--text);border:1px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;line-height:1.4;">
+            <div style="font-size:15px;font-weight:700;">직접</div>
+            <div style="font-size:10px;color:var(--muted);">입력</div>
+          </button>
+        </div>
+        <div id="wheelCustomRow" style="display:none;align-items:center;gap:8px;margin-bottom:6px;">
+          <input id="wheelCustom" type="number" step="0.1" min="10" max="36" placeholder="인치 입력 (예: 27.5)"
+            style="flex:1;padding:8px 10px;background:var(--panel);color:var(--text);border:1px solid rgba(255,255,255,0.12);border-radius:8px;font-size:13px;" />
+          <button onclick="saveCustomWheel()" style="padding:8px 14px;background:var(--accent);color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">확인</button>
+        </div>
+        <p id="wheelCircDisplay" style="font-size:11px;color:var(--accent);margin-top:2px;">현재: 29인치 (700×45) → 2.194m</p>
+      </div>
+    </div>
   </div>
 
   <!-- 주행 기록 탭 -->
@@ -1221,8 +1259,10 @@
       }
     }
 
-    if (kmh > maxSpeed) { maxSpeed = kmh; $('max').textContent = maxSpeed.toFixed(1); }
-    $('speed').textContent = kmh.toFixed(1);
+    // BLE 센서 연결 중이면 센서 속도 우선 사용
+    const displayKmh = (typeof bleConnected !== 'undefined' && bleConnected) ? bleSpeedKmh : kmh;
+    if (displayKmh > maxSpeed) { maxSpeed = displayKmh; $('max').textContent = maxSpeed.toFixed(1); }
+    $('speed').textContent = displayKmh.toFixed(1);
     $('distance').textContent = (distance/1000).toFixed(2);
 
     // ===== 2km 마다 음성 알림 =====
@@ -1757,7 +1797,256 @@
     }
   }
 
-  // ===== 슬라이드 시트 열기/닫기 =====
+  // ===== Web Bluetooth 속도 센서 =====
+  // Cycling Speed and Cadence (CSC) Service: 0x1816
+  // CSC Measurement Characteristic: 0x2A5B
+  const BLE_CSC_SERVICE   = 0x1816;
+  const BLE_CSC_CHAR      = 0x2A5B;
+  const BLE_SPEED_SERVICE = 0x1814; // Running Speed (일부 센서가 이쪽으로도 광고)
+
+  let bleDevice = null;
+  let bleChar   = null;
+  let bleConnected = false;
+  let bleWheelCirc = 2.19; // 700×45 / 29인치 정확값
+  let blePrevWheelRev = null;
+  let blePrevWheelTime = null; // 단위: 1/1024 s
+  let bleSpeedKmh = 0;
+  let bleSpeedTimer = null; // 일정 시간 데이터 없으면 0으로 초기화
+
+  // 인치 → 바퀴 둘레(m): 실측 기반 근사값
+  // 자전거 바퀴는 명칭 인치와 실제 외경이 다르므로 실측 테이블 사용
+  function inchToCirc(inch) {
+    // 대표 실측값 (ISO 기준)
+    const table = { 24: 1.785, 26: 2.068, 29: 2.194 };
+    if (table[inch]) return table[inch];
+    // 그 외 직접 입력 인치: 선형 보간
+    return parseFloat((inch * 0.0686 + 0.14).toFixed(3));
+  }
+
+  function selectInch(inch) {
+    const btns = ['wBtn24','wBtn26','wBtn29','wBtnCustom'];
+    const inchMap = { 24:'wBtn24', 26:'wBtn26', 29:'wBtn29', custom:'wBtnCustom' };
+    // 버튼 스타일 초기화
+    btns.forEach(id => {
+      const b = $(id);
+      if (!b) return;
+      b.style.background = 'var(--panel)';
+      b.style.color = 'var(--text)';
+      b.style.border = '1px solid rgba(255,255,255,0.12)';
+      b.style.fontWeight = '600';
+    });
+    // 선택 버튼 강조
+    const selId = inchMap[inch];
+    if (selId && $(selId)) {
+      $(selId).style.background = 'var(--accent)';
+      $(selId).style.color = '#000';
+      $(selId).style.border = '1px solid var(--accent)';
+      $(selId).style.fontWeight = '700';
+    }
+    if (inch === 'custom') {
+      $('wheelCustomRow').style.display = 'flex';
+      return;
+    }
+    $('wheelCustomRow').style.display = 'none';
+    // 인치별 mm 표기 매핑
+    const mmLabel = { 24: '507mm', 26: '559mm', 29: '700×45' };
+    bleWheelCirc = inchToCirc(inch);
+    const label = mmLabel[inch] ? inch + '인치 (' + mmLabel[inch] + ') → ' + bleWheelCirc.toFixed(3) + 'm'
+                                : inch + '인치 → ' + bleWheelCirc.toFixed(3) + 'm';
+    $('wheelCircDisplay').textContent = '현재: ' + label;
+    localStorage.setItem('bleWheelInch', inch);
+    localStorage.setItem('bleWheelCirc', bleWheelCirc);
+  }
+
+  function saveCustomWheel() {
+    const val = parseFloat($('wheelCustom').value);
+    if (isNaN(val) || val < 10 || val > 36) {
+      showToast('10 ~ 36 사이 인치로 입력하세요');
+      return;
+    }
+    bleWheelCirc = inchToCirc(val);
+    $('wheelCircDisplay').textContent = '현재: ' + val + '인치 → ' + bleWheelCirc.toFixed(3) + 'm';
+    localStorage.setItem('bleWheelInch', val);
+    localStorage.setItem('bleWheelCirc', bleWheelCirc);
+    $('wheelCustomRow').style.display = 'none';
+    showToast(val + '인치 → ' + bleWheelCirc.toFixed(3) + 'm 저장됨');
+  }
+
+  // 저장된 바퀴 사이즈 불러오기
+  (function loadWheelCirc() {
+    const savedInch = localStorage.getItem('bleWheelInch');
+    const savedCirc = localStorage.getItem('bleWheelCirc');
+    if (savedInch) {
+      bleWheelCirc = savedCirc ? parseFloat(savedCirc) : inchToCirc(parseFloat(savedInch));
+      const inch = parseFloat(savedInch);
+      const stdInches = [24, 26, 29];
+      if (stdInches.includes(inch)) {
+        // 페이지 로드 후 버튼 강조 (DOM 준비 후)
+        setTimeout(() => selectInch(inch), 0);
+      } else {
+        setTimeout(() => {
+          selectInch('custom');
+          if ($('wheelCustom')) $('wheelCustom').value = inch;
+          $('wheelCircDisplay').textContent = inch + '인치 → ' + bleWheelCirc.toFixed(2) + 'm';
+        }, 0);
+      }
+    }
+  })();
+
+  function setBleStatus(msg, color) {
+    const el = $('bleStatus');
+    if (el) { el.textContent = msg; el.style.color = color || 'var(--muted)'; }
+  }
+
+  async function toggleBle() {
+    if (bleConnected) {
+      disconnectBle();
+      return;
+    }
+    if (!navigator.bluetooth) {
+      showToast('이 브라우저는 Bluetooth를 지원하지 않습니다 (Chrome 필요)');
+      return;
+    }
+    try {
+      setBleStatus('검색 중…', 'var(--accent)');
+      bleDevice = await navigator.bluetooth.requestDevice({
+        filters: [
+          { services: [BLE_CSC_SERVICE] },
+          { services: [BLE_SPEED_SERVICE] },
+          { namePrefix: 'SPD' },
+          { namePrefix: 'SPEED' },
+          { namePrefix: 'Cateye' },
+          { namePrefix: 'BAC' }
+        ],
+        optionalServices: [BLE_CSC_SERVICE, BLE_SPEED_SERVICE]
+      });
+      bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+      setBleStatus('연결 중…', 'var(--accent)');
+      const server = await bleDevice.gatt.connect();
+
+      // CSC 서비스 시도 → 없으면 Speed 서비스
+      let service;
+      try { service = await server.getPrimaryService(BLE_CSC_SERVICE); }
+      catch { service = await server.getPrimaryService(BLE_SPEED_SERVICE); }
+
+      bleChar = await service.getCharacteristic(BLE_CSC_CHAR);
+      bleChar.addEventListener('characteristicvaluechanged', onBleData);
+      await bleChar.startNotifications();
+
+      bleConnected = true;
+      $('bleBtn').textContent = '🔵 BLE 연결됨 (해제)';
+      $('bleBtn').style.color = 'var(--accent)';
+      setBleStatus('✅ ' + (bleDevice.name || '센서') + ' 연결됨', 'var(--accent)');
+      // BLE 표시 배지 보이기
+      if ($('bleIndicator'))   $('bleIndicator').style.display   = 'inline-block';
+      if ($('bleIndicator_c')) $('bleIndicator_c').style.display = 'inline-block';
+      showToast('BLE 센서 연결 완료! 속도가 센서 값으로 표시됩니다.');
+    } catch(e) {
+      setBleStatus('연결 실패: ' + e.message, 'var(--danger)');
+      bleDevice = null;
+    }
+  }
+
+  function disconnectBle() {
+    if (bleChar) { bleChar.stopNotifications().catch(()=>{}); bleChar = null; }
+    if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+    bleDevice = null;
+    bleConnected = false;
+    bleSpeedKmh = 0;
+    blePrevWheelRev = null;
+    blePrevWheelTime = null;
+    if (bleSpeedTimer) { clearTimeout(bleSpeedTimer); bleSpeedTimer = null; }
+    $('bleBtn').textContent = '📡 BLE 센서 연결';
+    $('bleBtn').style.color = '';
+    setBleStatus('연결 해제됨', 'var(--muted)');
+    if ($('bleIndicator'))   $('bleIndicator').style.display   = 'none';
+    if ($('bleIndicator_c')) $('bleIndicator_c').style.display = 'none';
+  }
+
+  function onBleDisconnected() {
+    if (!bleConnected) return;
+    setBleStatus('⚠️ 센서 연결 끊김 — 자동 재연결 시도 중…', 'var(--danger)');
+    // 자동 재연결
+    if (bleDevice) {
+      bleDevice.gatt.connect().then(server => {
+        return server.getPrimaryService(BLE_CSC_SERVICE)
+          .catch(() => server.getPrimaryService(BLE_SPEED_SERVICE));
+      }).then(service => service.getCharacteristic(BLE_CSC_CHAR))
+        .then(char => {
+          bleChar = char;
+          bleChar.addEventListener('characteristicvaluechanged', onBleData);
+          return bleChar.startNotifications();
+        }).then(() => {
+          setBleStatus('✅ 재연결 성공', 'var(--accent)');
+        }).catch(() => {
+          setBleStatus('재연결 실패 — 설정에서 다시 연결하세요', 'var(--danger)');
+          bleConnected = false;
+          $('bleBtn').textContent = '📡 BLE 센서 연결';
+          $('bleBtn').style.color = '';
+        });
+    }
+  }
+
+  function onBleData(event) {
+    const v = event.target.value; // DataView
+    const flags = v.getUint8(0);
+    const hasWheel = flags & 0x01; // Wheel Revolution Data Present
+    if (!hasWheel) return;
+
+    const wheelRev  = v.getUint32(1, true); // 누적 바퀴 회전수
+    const wheelTime = v.getUint16(5, true); // 마지막 이벤트 시간 (1/1024 s 단위)
+
+    if (blePrevWheelRev !== null) {
+      let dRev  = wheelRev - blePrevWheelRev;
+      // 16비트 롤오버 처리
+      let dTime = wheelTime - blePrevWheelTime;
+      if (dTime < 0) dTime += 65536;
+
+      if (dTime > 0 && dRev >= 0) {
+        const distM = dRev * bleWheelCirc;           // 이동 거리 (m)
+        const timeSec = dTime / 1024.0;              // 경과 시간 (초)
+        bleSpeedKmh = (distM / timeSec) * 3.6;
+        if (bleSpeedKmh > 80) bleSpeedKmh = 0;       // 이상값 제거
+
+        // 센서 값으로 화면 업데이트 (라이딩 중일 때만)
+        if (running) {
+          $('speed').textContent = bleSpeedKmh.toFixed(1);
+          if ($('speed_c')) $('speed_c').textContent = bleSpeedKmh.toFixed(1);
+          if (bleSpeedKmh > maxSpeed) {
+            maxSpeed = bleSpeedKmh;
+            $('max').textContent = maxSpeed.toFixed(1);
+          }
+        }
+        // 2초 후 데이터 없으면 정지로 간주
+        if (bleSpeedTimer) clearTimeout(bleSpeedTimer);
+        bleSpeedTimer = setTimeout(() => {
+          bleSpeedKmh = 0;
+          if (running) {
+            $('speed').textContent = '0.0';
+            if ($('speed_c')) $('speed_c').textContent = '0.0';
+          }
+        }, 2500);
+      }
+    }
+    blePrevWheelRev  = wheelRev;
+    blePrevWheelTime = wheelTime;
+  }
+
+  // GPS onPos에서 BLE 연결 중이면 속도 표시를 센서 값으로 override
+  // (원래 onPos의 speed 표시 줄 이후에 덮어씀)
+  const _origOnPos = onPos;
+  // onPos 마지막에 BLE 속도 덮어쓰기 — MutationObserver 대신 직접 패치
+  function patchSpeedDisplay() {
+    if (bleConnected && running) {
+      $('speed').textContent = bleSpeedKmh.toFixed(1);
+      if ($('speed_c')) $('speed_c').textContent = bleSpeedKmh.toFixed(1);
+    }
+  }
+  // GPS 위치 업데이트마다 BLE 속도로 덮어쓰기
+  const _gpsOnPos = onPos;
+  window._bleSpeedPatch = patchSpeedDisplay;
+
+
   function openSheet() {
     $('sheetBg').classList.add('show');
     $('sheet').classList.add('show');
