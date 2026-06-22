@@ -675,7 +675,7 @@
         <div class="mini"><div class="mlabel">시간</div><div class="mval"><span id="time">00:00</span></div></div>
       </div>
     </div>
-    <div class="mini-sub" style="display:none">최고 <b id="max">0.0</b> km/h · 고도 <b id="alt">—</b> m</div>
+    <div class="mini-sub" style="display:none">최고 <b id="max">0.0</b> km/h · 고도 <b id="alt">—</b> m · 케이던스 <b id="cad">--</b> RPM</div>
     <div class="acc-line" id="accuracy">GPS 정확도: —</div>
     <div class="controls">
       <button class="btn-reset" id="resetBtn" onclick="finishRide()" disabled>완료</button>
@@ -723,6 +723,8 @@
       <div class="stat stat-row"><div class="rlabel">최고<br>속도</div><div class="rvalue"><span id="max_c">0.0</span><i>km/h</i></div></div>
       <div class="stat stat-row"><div class="rlabel">경과<br>시간</div><div class="rvalue"><span id="time_c" style="font-family:'Space Mono',monospace">00:00</span></div></div>
       <div class="stat stat-row"><div class="rlabel">현재<br>고도</div><div class="rvalue"><span id="alt_c">—</span><i>m</i></div></div>
+      <div class="stat stat-row"><div class="rlabel">케이던스</div><div class="rvalue"><span id="cad_c">--</span><i>RPM</i></div></div>
+      <div class="stat stat-row"><div class="rlabel">평균<br>케이던스</div><div class="rvalue"><span id="avgCad_c">--</span><i>RPM</i></div></div>
     </div>
 
     <div class="region-now">현재 위치: <span id="region_c">—</span></div>
@@ -1399,6 +1401,10 @@
     if (running) stop();
     releaseWakeLock();
     distance = 0; maxSpeed = 0; elapsedBefore = 0; lastPos = null;
+    cadenceSum = 0; cadenceCount = 0; bleCadenceRpm = 0;
+    if ($('cad'))      $('cad').textContent      = '--';
+    if ($('cad_c'))    $('cad_c').textContent    = '--';
+    if ($('avgCad_c')) $('avgCad_c').textContent = '--';
     nextMilestone = MILESTONE_STEP;
     // 궤적 초기화
     trackPoints = [];
@@ -1812,6 +1818,12 @@
   let blePrevWheelTime = null; // 단위: 1/1024 s
   let bleSpeedKmh = 0;
   let bleSpeedTimer = null; // 일정 시간 데이터 없으면 0으로 초기화
+  let bleCadenceRpm = 0;
+  let blePrevCrankRev = null;
+  let blePrevCrankTime = null;
+  let bleCadenceTimer = null;
+  let cadenceSum = 0;
+  let cadenceCount = 0;
 
   // 인치 → 바퀴 둘레(m): 실측 기반 근사값
   // 자전거 바퀴는 명칭 인치와 실제 외경이 다르므로 실측 테이블 사용
@@ -1990,46 +2002,87 @@
   function onBleData(event) {
     const v = event.target.value; // DataView
     const flags = v.getUint8(0);
-    const hasWheel = flags & 0x01; // Wheel Revolution Data Present
-    if (!hasWheel) return;
+    const hasWheel   = flags & 0x01; // Wheel Revolution Data Present
+    const hasCrank   = flags & 0x02; // Crank Revolution Data Present
 
-    const wheelRev  = v.getUint32(1, true); // 누적 바퀴 회전수
-    const wheelTime = v.getUint16(5, true); // 마지막 이벤트 시간 (1/1024 s 단위)
+    let offset = 1;
 
-    if (blePrevWheelRev !== null) {
-      let dRev  = wheelRev - blePrevWheelRev;
-      // 16비트 롤오버 처리
-      let dTime = wheelTime - blePrevWheelTime;
-      if (dTime < 0) dTime += 65536;
+    // ── 속도 (바퀴 회전) ──
+    if (hasWheel) {
+      const wheelRev  = v.getUint32(offset, true);
+      const wheelTime = v.getUint16(offset + 4, true);
+      offset += 6;
 
-      if (dTime > 0 && dRev >= 0) {
-        const distM = dRev * bleWheelCirc;           // 이동 거리 (m)
-        const timeSec = dTime / 1024.0;              // 경과 시간 (초)
-        bleSpeedKmh = (distM / timeSec) * 3.6;
-        if (bleSpeedKmh > 80) bleSpeedKmh = 0;       // 이상값 제거
+      if (blePrevWheelRev !== null) {
+        let dRev  = wheelRev - blePrevWheelRev;
+        let dTime = wheelTime - blePrevWheelTime;
+        if (dTime < 0) dTime += 65536;
 
-        // 센서 값으로 화면 업데이트 (라이딩 중일 때만)
-        if (running) {
-          $('speed').textContent = bleSpeedKmh.toFixed(1);
-          if ($('speed_c')) $('speed_c').textContent = bleSpeedKmh.toFixed(1);
-          if (bleSpeedKmh > maxSpeed) {
-            maxSpeed = bleSpeedKmh;
-            $('max').textContent = maxSpeed.toFixed(1);
-          }
-        }
-        // 2초 후 데이터 없으면 정지로 간주
-        if (bleSpeedTimer) clearTimeout(bleSpeedTimer);
-        bleSpeedTimer = setTimeout(() => {
-          bleSpeedKmh = 0;
+        if (dTime > 0 && dRev >= 0) {
+          const distM = dRev * bleWheelCirc;
+          const timeSec = dTime / 1024.0;
+          bleSpeedKmh = (distM / timeSec) * 3.6;
+          if (bleSpeedKmh > 80) bleSpeedKmh = 0;
+
           if (running) {
-            $('speed').textContent = '0.0';
-            if ($('speed_c')) $('speed_c').textContent = '0.0';
+            $('speed').textContent = bleSpeedKmh.toFixed(1);
+            if ($('speed_c')) $('speed_c').textContent = bleSpeedKmh.toFixed(1);
+            if (bleSpeedKmh > maxSpeed) {
+              maxSpeed = bleSpeedKmh;
+              $('max').textContent = maxSpeed.toFixed(1);
+              if ($('max_c')) $('max_c').textContent = maxSpeed.toFixed(1);
+            }
           }
-        }, 2500);
+          if (bleSpeedTimer) clearTimeout(bleSpeedTimer);
+          bleSpeedTimer = setTimeout(() => {
+            bleSpeedKmh = 0;
+            if (running) {
+              $('speed').textContent = '0.0';
+              if ($('speed_c')) $('speed_c').textContent = '0.0';
+            }
+          }, 2500);
+        }
       }
+      blePrevWheelRev  = wheelRev;
+      blePrevWheelTime = wheelTime;
     }
-    blePrevWheelRev  = wheelRev;
-    blePrevWheelTime = wheelTime;
+
+    // ── 케이던스 (크랭크 회전) — Duotrap S 장착 시 활성화 ──
+    if (hasCrank) {
+      const crankRev  = v.getUint16(offset, true);
+      const crankTime = v.getUint16(offset + 2, true);
+
+      if (blePrevCrankRev !== null) {
+        let dRev  = crankRev - blePrevCrankRev;
+        let dTime = crankTime - blePrevCrankTime;
+        if (dTime < 0) dTime += 65536;
+
+        if (dTime > 0 && dRev >= 0) {
+          bleCadenceRpm = Math.round((dRev / (dTime / 1024.0)) * 60);
+          if (bleCadenceRpm > 200) bleCadenceRpm = 0;
+
+          if (running) {
+            $('cad').textContent = bleCadenceRpm;
+            if ($('cad_c')) $('cad_c').textContent = bleCadenceRpm;
+            // 평균 케이던스 계산
+            if (bleCadenceRpm > 0) {
+              cadenceSum += bleCadenceRpm;
+              cadenceCount++;
+              const avgCad = Math.round(cadenceSum / cadenceCount);
+              if ($('avgCad_c')) $('avgCad_c').textContent = avgCad;
+            }
+          }
+          if (bleCadenceTimer) clearTimeout(bleCadenceTimer);
+          bleCadenceTimer = setTimeout(() => {
+            bleCadenceRpm = 0;
+            if ($('cad'))   $('cad').textContent   = '--';
+            if ($('cad_c')) $('cad_c').textContent = '--';
+          }, 3000);
+        }
+      }
+      blePrevCrankRev  = crankRev;
+      blePrevCrankTime = crankTime;
+    }
   }
 
   // GPS onPos에서 BLE 연결 중이면 속도 표시를 센서 값으로 override
