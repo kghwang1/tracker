@@ -216,6 +216,22 @@
   .voice-toggle.off { color: var(--muted); }
   #voiceBtn { margin-top: 0; }
   #regionBtn { margin-top: 8px; }
+  /* 설정: 사용자/백업/서버 섹션 */
+  .s-sec {
+    margin-top: 18px; padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .s-label {
+    font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--accent); letter-spacing: .5px; margin-bottom: 10px;
+  }
+  .s-input {
+    width: 100%; box-sizing: border-box; padding: 12px 14px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 12px;
+    font-family: 'Space Mono', monospace; font-size: 14px; margin-bottom: 8px;
+  }
+  .s-input::placeholder { color: var(--muted); }
   .region-now {
     margin: 4px 0 12px; text-align: center; line-height: 1.5;
     font-family:'Space Mono', monospace; font-size: 15px; color: var(--muted);
@@ -780,6 +796,27 @@
     <button id="regionBtn" class="voice-toggle" onclick="toggleRegion()">📍 지역 진입 알림 켜짐</button>
     <button id="headingBtn" class="voice-toggle" onclick="toggleHeading()">🧭 지도: 진행 방향 위</button>
     <p class="g-hint">각 버튼을 눌러 켜고 끌 수 있습니다. 지도 버튼은 북쪽 고정 ↔ 진행 방향 위를 전환합니다.</p>
+
+    <div class="s-sec">
+      <div class="s-label">👤 사용자</div>
+      <input id="userName" class="s-input" placeholder="이름 (예: 홍길동)" onchange="setUser()">
+      <p class="g-hint">사용자마다 기록이 따로 저장됩니다. 이름을 바꾸면 그 사용자의 기록이 보입니다. (비워두면 '기본')</p>
+    </div>
+
+    <div class="s-sec">
+      <div class="s-label">💾 백업 · 복원 (파일)</div>
+      <button class="voice-toggle" onclick="exportRecords()">⬇️ 기록 파일로 내려받기</button>
+      <button class="voice-toggle" onclick="document.getElementById('importFile').click()">⬆️ 파일에서 기록 불러오기</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importRecords(event)">
+      <p class="g-hint">기록을 파일로 저장해 두면 브라우저 데이터가 지워져도 복원할 수 있습니다. 다른 기기로도 옮길 수 있어요.</p>
+    </div>
+
+    <div class="s-sec">
+      <div class="s-label">☁️ 서버 동기화</div>
+      <input id="serverUrl" class="s-input" placeholder="서버 주소 (Cloudflare Worker URL)">
+      <button class="voice-toggle" onclick="syncServer()">🔄 서버와 동기화 (백업+복원)</button>
+      <p class="g-hint">여러 기기·여러 사용자의 기록을 서버에 안전하게 보관합니다. 사용자 이름별로 저장됩니다. (서버 설치 필요)</p>
+    </div>
   </div>
 
   <!-- 주행 기록 탭 -->
@@ -1431,10 +1468,15 @@
 
   // ===== 기록 저장소 (localStorage 기반 — 모든 브라우저/사이트에서 작동) =====
   const STORE_KEY = 'ride_records_v1';
+  // 사용자별 저장: '기본'은 기존 키 그대로(호환), 다른 이름은 접미사 부여
+  let currentUser = (localStorage.getItem('ride_user_v1') || '기본').trim() || '기본';
+  function storeKey() {
+    return currentUser === '기본' ? STORE_KEY : STORE_KEY + '::' + currentUser;
+  }
 
   function loadAllFromStore() {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
+      const raw = localStorage.getItem(storeKey());
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
       return [];
@@ -1443,11 +1485,98 @@
 
   function saveAllToStore(records) {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(records));
+      localStorage.setItem(storeKey(), JSON.stringify(records));
       return true;
     } catch (e) {
       console.error('저장 실패', e);
       return false;
+    }
+  }
+
+  // 사용자 이름 변경 → 해당 사용자 기록 표시
+  function setUser() {
+    const n = ($('userName').value || '').trim() || '기본';
+    currentUser = n;
+    try { localStorage.setItem('ride_user_v1', n); } catch (e) {}
+    loadRecords();
+    showToast(`사용자: ${n}`);
+  }
+
+  // 여러 기록을 id 기준으로 합침(중복 제거, 지명은 채워진 쪽 우선)
+  function mergeRecords(a, b) {
+    const map = new Map();
+    [...(a || []), ...(b || [])].forEach(r => {
+      if (!r || !r.id) return;
+      const ex = map.get(r.id);
+      if (!ex) { map.set(r.id, r); return; }
+      const o = { ...ex };
+      ['startPlace', 'turnPlace', 'endPlace'].forEach(k => { if (!o[k] && r[k]) o[k] = r[k]; });
+      map.set(r.id, o);
+    });
+    return Array.from(map.values()).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  }
+
+  // 기록을 파일로 내려받기
+  function exportRecords() {
+    const all = loadAllFromStore();
+    if (!all.length) { showToast('저장된 기록이 없습니다'); return; }
+    const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const ymd = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const a = document.createElement('a');
+    a.href = url; a.download = `kgride_${currentUser}_${ymd}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast(`기록 ${all.length}건을 파일로 내려받았습니다`);
+  }
+
+  // 파일에서 기록 불러오기 (기존 기록과 합침)
+  function importRecords(ev) {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const arr = JSON.parse(reader.result);
+        if (!Array.isArray(arr)) throw new Error('형식 오류');
+        const merged = mergeRecords(loadAllFromStore(), arr);
+        saveAllToStore(merged);
+        loadRecords();
+        showToast(`불러오기 완료 (총 ${merged.length}건)`);
+      } catch (e) {
+        showToast('파일을 읽을 수 없습니다 (형식 확인)');
+      }
+    };
+    reader.readAsText(file);
+    ev.target.value = '';
+  }
+
+  // 서버(Cloudflare Worker)와 양방향 동기화 (백업 + 복원, 절대 손실 없음)
+  async function syncServer() {
+    const url = ($('serverUrl').value || '').trim();
+    if (!url) { showToast('서버 주소를 먼저 입력하세요'); return; }
+    try { localStorage.setItem('ride_server_v1', url); } catch (e) {}
+    const base = url.replace(/\/+$/, '');
+    const ep = base + '/records?user=' + encodeURIComponent(currentUser);
+    showToast('동기화 중...');
+    try {
+      let serverRecs = [];
+      try {
+        const r = await fetch(ep);
+        if (r.ok) { const j = await r.json(); if (Array.isArray(j)) serverRecs = j; }
+      } catch (e) {}
+      const merged = mergeRecords(loadAllFromStore(), serverRecs);
+      saveAllToStore(merged);
+      await loadRecords();
+      let ok = false;
+      try {
+        const post = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(merged) });
+        ok = post.ok;
+      } catch (e) {}
+      showToast(ok ? `동기화 완료 (총 ${merged.length}건)` : `복원됨 ${merged.length}건 · 서버 저장 실패(주소 확인)`);
+    } catch (e) {
+      showToast('동기화 실패: 서버 주소를 확인하세요');
     }
   }
 
@@ -1837,6 +1966,11 @@
 
   // 앱 시작 시 저장된 기록 로드 + 초기 화면 적용
   recoverActiveRide();
+  // 설정 입력칸 초기화 (사용자/서버 주소)
+  try {
+    if ($('userName')) $('userName').value = (currentUser === '기본') ? '' : currentUser;
+    if ($('serverUrl')) $('serverUrl').value = localStorage.getItem('ride_server_v1') || '';
+  } catch (e) {}
   loadRecords();
   applyView();
   initQR();
