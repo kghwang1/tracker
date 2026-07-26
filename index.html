@@ -1684,7 +1684,13 @@
 
   function renderRecords(records) {
     const list = $('recordList');
-    $('recCount').textContent = records.length > 0 ? `총 ${records.length}회` : '';
+    if (records.length > 0) {
+      const totalKm = records.reduce((s, r) => s + (r.distance || 0), 0);
+      const kmStr = (Math.round(totalKm * 10) / 10).toString();
+      $('recCount').textContent = `${kmStr} km · 총 ${records.length}회`;
+    } else {
+      $('recCount').textContent = '';
+    }
     if (records.length === 0) {
       list.innerHTML = '<div class="empty-records">아직 저장된 기록이 없습니다</div>';
       return;
