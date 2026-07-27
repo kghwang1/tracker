@@ -313,7 +313,7 @@
     text-transform: uppercase; color: var(--muted);
     font-family:'Space Mono', monospace;
   }
-  .records-count { font-family:'Space Mono', monospace; font-size: 11px; color: var(--accent-dim); }
+  .records-count { font-family:'Space Mono', monospace; font-size: 16.5px; font-weight: 700; color: var(--accent-dim); }
   .day-group { margin-bottom: 18px; }
   .day-label {
     font-family:'Space Mono', monospace; font-size: 11px; letter-spacing: 1px;
@@ -1686,8 +1686,7 @@
     const list = $('recordList');
     if (records.length > 0) {
       const totalKm = records.reduce((s, r) => s + (r.distance || 0), 0);
-      const kmStr = (Math.round(totalKm * 10) / 10).toString();
-      $('recCount').textContent = `${kmStr} km · 총 ${records.length}회`;
+      $('recCount').textContent = `총 ${totalKm.toFixed(1)}km / ${records.length}회`;
     } else {
       $('recCount').textContent = '';
     }
