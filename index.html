@@ -617,6 +617,18 @@
     flex: 0 0 auto;
   }
   .locate-btn:active { transform: scale(0.94); }
+
+  /* 첫화면 제목 아래 총 주행 요약 (색: 속도 숫자와 동일, 크기: 속도 숫자의 60%) */
+  .home-total {
+    position: fixed; top: calc(60px + env(safe-area-inset-top));
+    left: 50%; transform: translateX(-50%); z-index: 600;
+    pointer-events: none; white-space: nowrap;
+    font-family: 'Space Mono', monospace; font-weight: 800;
+    font-size: 17px; color: var(--accent); letter-spacing: 0.3px;
+    text-shadow:
+      0 0 4px rgba(0,0,0,1), 0 0 9px rgba(0,0,0,1),
+      0 0 16px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,1);
+  }
 </style>
 </head>
 <body class="view-full">
@@ -651,6 +663,9 @@
 
   <!-- 내 위치(중앙 원) 0.5cm 아래 따라다니는 주소 라벨 -->
   <div class="loc-label-map" id="locLabel" aria-hidden="true"></div>
+
+  <!-- 첫화면: 제목 아래 총 주행 요약 -->
+  <div class="home-total" id="homeTotal" aria-hidden="true"></div>
 
   <!-- 현위치 버튼: 손으로 지도를 이동한 뒤 내 위치로 다시 중앙 정렬 -->
   <button class="locate-btn" id="locateBtn" onclick="recenter()" aria-label="현위치" title="현위치로 이동">
@@ -759,9 +774,9 @@
 
   <!-- 탭 버튼 -->
   <div class="tabs">
-    <button class="tab-btn" id="tabGuideBtn" onclick="openTab('guide')">📖 사용법</button>
-    <button class="tab-btn" id="tabSettingsBtn" onclick="openTab('settings')">⚙️ 설정</button>
     <button class="tab-btn" id="tabRecordsBtn" onclick="openTab('records')">📋 주행 기록</button>
+    <button class="tab-btn" id="tabSettingsBtn" onclick="openTab('settings')">⚙️ 설정</button>
+    <button class="tab-btn" id="tabGuideBtn" onclick="openTab('guide')">📖 사용법</button>
   </div>
 
   <!-- 사용법 탭 -->
@@ -1684,11 +1699,14 @@
 
   function renderRecords(records) {
     const list = $('recordList');
+    const totalKm = records.reduce((s, r) => s + (r.distance || 0), 0);
+    const he = $('homeTotal');
     if (records.length > 0) {
-      const totalKm = records.reduce((s, r) => s + (r.distance || 0), 0);
       $('recCount').textContent = `총 ${totalKm.toFixed(1)}km / ${records.length}회`;
+      if (he) he.textContent = `주행 ${totalKm.toFixed(1)} km / ${records.length}회`;
     } else {
       $('recCount').textContent = '';
+      if (he) he.textContent = '';
     }
     if (records.length === 0) {
       list.innerHTML = '<div class="empty-records">아직 저장된 기록이 없습니다</div>';
@@ -1892,7 +1910,7 @@
   function openSheet() {
     $('sheetBg').classList.add('show');
     $('sheet').classList.add('show');
-    if (!activeTab) openTab('guide');
+    if (activeTab !== 'records') openTab('records');
   }
   function closeSheet() {
     $('sheetBg').classList.remove('show');
